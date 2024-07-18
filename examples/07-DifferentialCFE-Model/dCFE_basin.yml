@@ -37,7 +37,7 @@ metrics:
 
 # base model type [lstm, ealstm, cudalstm, embcudalstm, mtslstm]
 # (has to match the if statement in modelzoo/__init__.py)
-model: cudalstm
+model: dcfe
 
 # prediction head [regression]. Define the head specific parameters below
 head: regression
@@ -74,7 +74,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 50
+epochs: 25
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -125,6 +125,32 @@ dynamic_inputs:
   - tmax(C)_daymet
   - tmin(C)_daymet
   - vp(Pa)_daymet
+
+custom_normalization:
+  PRCP(mm/day)_nldas:
+    centering: mean
+    scaling: std
+  PRCP(mm/day)_maurer:
+    centering: mean
+    scaling: std
+  prcp(mm/day)_daymet:
+    centering: mean
+    scaling: std
+  srad(W/m2)_daymet:
+    centering: mean
+    scaling: std
+  tmax(C)_daymet:
+    centering: mean
+    scaling: std
+  tmin(C)_daymet:
+    centering: mean
+    scaling: std
+  vp(Pa)_daymet:
+    centering: mean
+    scaling: std
+  QObs(mm/d):
+    centering: mean
+    scaling: std
 
 # which columns to use as target
 target_variables:

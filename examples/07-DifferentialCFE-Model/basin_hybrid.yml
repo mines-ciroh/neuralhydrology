@@ -17,7 +17,7 @@ test_start_date: "01/10/1989"
 test_end_date: "30/09/1999"
 
 # which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
-device: cuda:0
+device: cpu
 
 # --- Validation configuration ---------------------------------------------------------------------
 
@@ -37,7 +37,10 @@ metrics:
 
 # base model type [lstm, ealstm, cudalstm, embcudalstm, mtslstm]
 # (has to match the if statement in modelzoo/__init__.py)
-model: cudalstm
+model: hybrid_model
+
+conceptual_model: shm
+
 
 # prediction head [regression]. Define the head specific parameters below
 head: regression
@@ -57,6 +60,8 @@ initial_forget_bias: 3
 output_dropout: 0.4
 
 # --- Training configuration -----------------------------------------------------------------------
+# hybrid_model specific:
+warmup_period: 100
 
 # specify optimizer [Adam]
 optimizer: Adam
@@ -74,7 +79,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 50
+epochs: 25
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -125,6 +130,28 @@ dynamic_inputs:
   - tmax(C)_daymet
   - tmin(C)_daymet
   - vp(Pa)_daymet
+duplicate_features:
+  - PRCP(mm/day)_nldas
+  - tmax(C)_daymet
+  - tmin(C)_daymet
+dynamic_conceptual_inputs:
+  - PRCP(mm/day)_nldas_copy1
+  - tmax(C)_daymet_copy1
+  - tmin(C)_daymet_copy1
+
+custom_normalization:
+  PRCP(mm/day)_nldas_copy1:
+    centering: None
+    scaling: None
+  tmax(C)_daymet_copy1:
+    centering: None
+    scaling: None
+  tmin(C)_daymet_copy1:
+    centering: None
+    scaling: None
+  QObs(mm/d):
+    centering: None
+    scaling: None
 
 # which columns to use as target
 target_variables:
