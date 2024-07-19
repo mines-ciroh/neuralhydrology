@@ -1,7 +1,7 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: test_run
+experiment_name: testHybrid_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -61,7 +61,7 @@ output_dropout: 0.4
 
 # --- Training configuration -----------------------------------------------------------------------
 # hybrid_model specific:
-warmup_period: 100
+# warmup_period: 100
 
 # specify optimizer [Adam]
 optimizer: Adam
@@ -79,7 +79,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 25
+epochs: 50
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -130,17 +130,26 @@ dynamic_inputs:
   - tmax(C)_daymet
   - tmin(C)_daymet
   - vp(Pa)_daymet
+
 duplicate_features:
   - PRCP(mm/day)_nldas
+  - srad(W/m2)_daymet
   - tmax(C)_daymet
   - tmin(C)_daymet
 dynamic_conceptual_inputs:
   - PRCP(mm/day)_nldas_copy1
+  - srad(W/m2)_daymet_copy1
   - tmax(C)_daymet_copy1
   - tmin(C)_daymet_copy1
 
 custom_normalization:
+  QObs(mm/d):
+    centering: None
+    scaling: None
   PRCP(mm/day)_nldas_copy1:
+    centering: None
+    scaling: None
+  srad(W/m2)_daymet_copy1:
     centering: None
     scaling: None
   tmax(C)_daymet_copy1:
@@ -149,9 +158,7 @@ custom_normalization:
   tmin(C)_daymet_copy1:
     centering: None
     scaling: None
-  QObs(mm/d):
-    centering: None
-    scaling: None
+
 
 # which columns to use as target
 target_variables:
