@@ -61,7 +61,7 @@ output_dropout: 0.4
 
 # --- Training configuration -----------------------------------------------------------------------
 # hybrid_model specific:
-# warmup_period: 100
+warmup_period: 30
 
 # specify optimizer [Adam]
 optimizer: Adam
@@ -133,14 +133,13 @@ dynamic_inputs:
 
 duplicate_features:
   - PRCP(mm/day)_nldas
-  - srad(W/m2)_daymet
   - tmax(C)_daymet
   - tmin(C)_daymet
 dynamic_conceptual_inputs:
   - PRCP(mm/day)_nldas_copy1
-  - srad(W/m2)_daymet_copy1
-  - tmax(C)_daymet_copy1
+  - SWE(mm)_nldas
   - tmin(C)_daymet_copy1
+  - tmax(C)_daymet_copy1
 
 custom_normalization:
   QObs(mm/d):
@@ -149,13 +148,13 @@ custom_normalization:
   PRCP(mm/day)_nldas_copy1:
     centering: None
     scaling: None
-  srad(W/m2)_daymet_copy1:
-    centering: None
-    scaling: None
-  tmax(C)_daymet_copy1:
+  SWE(mm)_nldas:
     centering: None
     scaling: None
   tmin(C)_daymet_copy1:
+    centering: None
+    scaling: None
+  tmax(C)_daymet_copy1:
     centering: None
     scaling: None
 

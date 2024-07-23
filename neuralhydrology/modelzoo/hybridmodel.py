@@ -6,6 +6,7 @@ from neuralhydrology.modelzoo.basemodel import BaseModel
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.modelzoo.inputlayer import InputLayer
 from neuralhydrology.modelzoo.shm import SHM
+from neuralhydrology.modelzoo.dcfe import dCFE
 
 
 class HybridModel(BaseModel):
@@ -82,6 +83,8 @@ class HybridModel(BaseModel):
         """
         if cfg.conceptual_model.lower() == "shm":
             conceptual_model = SHM(cfg=cfg)
+        elif cfg.conceptual_model.lower() == 'dcfe':
+            conceptual_model = dCFE(cfg = cfg)
         else:
             raise NotImplementedError(f"{cfg.conceptual_model} not implemented or not linked in `_get_conceptual_model()`")
 
