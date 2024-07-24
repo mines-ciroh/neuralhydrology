@@ -9,13 +9,16 @@ class dCFE(BaseConceptualModel):
     This is an attempt to make a dCFE model based on 
     https://github.com/NWC-CUAHSI-Summer-Institute/ngen-aridity/blob/main/Project%20Manuscript_LongForm.pdf
     
-    Last edited: by Ziyu, 07/18/2024
+    Last edited: by Ziyu, 07/23/2024
     
     General outline:
     The model takes in output from a NN (like a LSTM), and forcings needed for CFE, which are just PET and Precip. 
     
     This startes over from dcfe_outline.py, and is a code-vomit of cfe.py into the NH framework and will follow
     the general formatting of shm.py. The idea is to run this dcfe model via hybrid_model. 
+    
+    (07/23/3024) Modified overall structure for clarity & renamed some previous elements in forward(), incorprorated
+    run_cfe() from cfe.py into forward() and added suggestions for time-loop of CFE. 
     
     """
     
@@ -39,7 +42,7 @@ class dCFE(BaseConceptualModel):
         Returns
         -------
         Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]
-            - q_hat: torch.Tensor
+            - y_hat: torch.Tensor
                 Simulated outflow
             - parameters: Dict[str, torch.Tensor]
                 Dynamic parameterization of the conceptual model
@@ -50,13 +53,100 @@ class dCFE(BaseConceptualModel):
         """
        
         # get model params thru baseconceptualmodel.py's function, 
-        # this ensure that the output from NN is within the correct range
+        # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(x)
         
-        # pass parameters thru CFE to get runoff and the states of CFE
-        states, q_out =  self._initialize_information(conceptual_inputs=x_conceptual)
+        # initialize structures to store information on states, built into NH
+        cfe_state, out =  self._initialize_information(conceptual_inputs=x_conceptual)
+        
+        # There are some other initializations from bmi_cfe.py for each epoch, maybe can be incorprorated above?
+        
+        
+        
+        # ________________start of run_cfe() content, main model function ________
+        # Maybe we should consider putting this in a loop for time? CFE is ran by each time step
+        # pulled directly from run_cfe(self, cfe_state) in cfe.py
+        # Initialize the surface runoff
+        self.initialize_flux(cfe_state) # might not be needed, see line108
 
-    def initialize_flux(self, cfe_state):
+        # Rainfall and ET
+        self.calculate_input_rainfall_and_PET(cfe_state)
+        self.calculate_evaporation_from_rainfall(cfe_state)
+
+        if cfe_state.soil_params["scheme"].lower() == "classic":
+            self.calculate_evaporation_from_soil(cfe_state)
+
+        # Infiltration partitioning
+        self.calculate_the_soil_moisture_deficit(cfe_state)
+        self.calculate_infiltration_excess_overland_flow(cfe_state)
+        self.adjust_runoff_and_infiltration(cfe_state)
+
+        # Soil moisture reservoir
+        # if cfe_state.infiltration_depth_m > 0:
+        #     print('stop')
+        self.run_soil_moisture_scheme(cfe_state)
+        self.update_outflux_from_soil(cfe_state)
+
+        # Groundwater reservoir
+        self.calculate_groundwater_storage_deficit(cfe_state)
+        self.adjust_percolation_to_gw(cfe_state)
+
+        self.track_volume_from_percolation_and_lateral_flow(cfe_state)
+        self.gw_conceptual_reservoir_flux_calc(
+            cfe_state=cfe_state, gw_reservoir=cfe_state.gw_reservoir
+        )
+        self.track_volume_from_gw(cfe_state)
+
+        # Surface runoff rounting
+        # if cfe_state.surface_runoff_depth_m > 0.0:
+        #     print('examine mass balance')
+        self.convolution_integral(cfe_state)
+        self.track_volume_from_giuh(cfe_state)
+
+        # Lateral flow rounting
+        self.nash_cascade(cfe_state)
+        self.track_volume_from_nash_cascade(cfe_state)
+        self.add_up_total_flux_discharge(cfe_state) # this gives total outflow I believe
+
+        # Time
+        self.update_current_time(cfe_state)
+        
+        #_________________end of run_cfe() content___________
+        
+        # now storing the total outflow
+        # out[:, j, 0] = cfe_state.total_discharge
+        
+        # maybe end time loop here?
+        
+        return {'y_hat': out, 'parameters': parameters, 'internal_states': cfe_state}
+
+    #______________________defining states and parameter properties________________
+    @property
+    def initial_states(self):
+        return {'ss': 0.0,
+                'sf': 1.0,
+                'su': 5.0,
+                'si': 10.0,
+                'sb': 15.0} ## we need to define these differently for CFE still
+
+    @property
+    def parameter_ranges(self):
+        return {'bb': [0.0, 21.94], # Exponent on Clapp-Hornberger (1978) function
+                'smcmax': [0.20554, 1.0], # Maximum soil moisture content
+                'satdk': [0.0, 0.000726], # Saturated hydraulic conductivity
+                'slop': [0.0, 1.0], # Slope coefficient
+                'max_gw_storage': [0.01, 0.25], # Max groundwater storage
+                'expon': [1.0, 8.0], # Primary groundwater exponential constant
+                'Cgw': [0.0000018, 0.0018], # ^^ reservoir constant
+                'K_lf': [0.0, 1.0], # Lateral flow coefficient
+                'K_nash': [0.0, 1.0] # Nash cascade discharge coefficient
+                } # I think this part is 
+    #___________________end of defining states and parameters__________________
+    
+    
+    
+    #___________________beginning of other defined methods in cfe.py___________
+    def initialize_flux(self, cfe_state): # can put this in initialize_information? initialize per batch vs. per time step? 
         """Some fluxses need to be initialized at each timestep"""
         cfe_state.surface_runoff_depth_m = torch.zeros(
             (1, cfe_state.num_basins), dtype=torch.float64
@@ -385,59 +475,6 @@ class dCFE(BaseConceptualModel):
                 f"cfe line 462 --- Cgw: {cfe_state.Cgw}, cfe_state.soil_reservoir[coeff_primary]: {cfe_state.soil_reservoir['coeff_primary']}"
             )
 
-    # __________________________________________________________________________________________________________
-    # __________________________________________________________________________________________________________
-    # __________________________________________________________________________________________________________
-    # MAIN MODEL FUNCTION
-    def run_cfe(self, cfe_state):
-        # Initialize the surface runoff
-        self.initialize_flux(cfe_state)
-
-        # Rainfall and ET
-        self.calculate_input_rainfall_and_PET(cfe_state)
-        self.calculate_evaporation_from_rainfall(cfe_state)
-
-        if cfe_state.soil_params["scheme"].lower() == "classic":
-            self.calculate_evaporation_from_soil(cfe_state)
-
-        # Infiltration partitioning
-        self.calculate_the_soil_moisture_deficit(cfe_state)
-        self.calculate_infiltration_excess_overland_flow(cfe_state)
-        self.adjust_runoff_and_infiltration(cfe_state)
-
-        # Soil moisture reservoir
-        # if cfe_state.infiltration_depth_m > 0:
-        #     print('stop')
-        self.run_soil_moisture_scheme(cfe_state)
-        self.update_outflux_from_soil(cfe_state)
-
-        # Groundwater reservoir
-        self.calculate_groundwater_storage_deficit(cfe_state)
-        self.adjust_percolation_to_gw(cfe_state)
-
-        self.track_volume_from_percolation_and_lateral_flow(cfe_state)
-        self.gw_conceptual_reservoir_flux_calc(
-            cfe_state=cfe_state, gw_reservoir=cfe_state.gw_reservoir
-        )
-        self.track_volume_from_gw(cfe_state)
-
-        # Surface runoff rounting
-        # if cfe_state.surface_runoff_depth_m > 0.0:
-        #     print('examine mass balance')
-        self.convolution_integral(cfe_state)
-        self.track_volume_from_giuh(cfe_state)
-
-        # Lateral flow rounting
-        self.nash_cascade(cfe_state)
-        self.track_volume_from_nash_cascade(cfe_state)
-        self.add_up_total_flux_discharge(cfe_state)
-
-        # Time
-        self.update_current_time(cfe_state)
-
-    # __________________________________________________________________________________________________________
-    # __________________________________________________________________________________________________________
-    # __________________________________________________________________________________________________________
 
     # __________________________________________________________________________________________________________
     def nash_cascade(self, cfe_state):
@@ -1068,28 +1105,3 @@ class dCFE(BaseConceptualModel):
         # print(f'secondary_flux_m: {secondary_flux_m}')
         # print(f'actual_et_from_soil_m_per_timestep: {actual_et_from_soil_m_per_timestep}')
         # print(f'reservoir["storage_m"]: {reservoir["storage_m"]}')
-
-        return
-            
-        return {'q_hat': out, 'parameters': parameters, 'internal_states': states}
-
-    @property
-    def initial_states(self):
-        return {'ss': 0.0,
-                'sf': 1.0,
-                'su': 5.0,
-                'si': 10.0,
-                'sb': 15.0} ## we need to define these differently for CFE
-
-    @property
-    def parameter_ranges(self):
-        return {'bb': [0.0, 21.94], # Exponent on Clapp-Hornberger (1978) function
-                'smcmax': [0.20554, 1.0], # Maximum soil moisture content
-                'satdk': [0.0, 0.000726], # Saturated hydraulic conductivity
-                'slop': [0.0, 1.0], # Slope coefficient
-                'max_gw_storage': [0.01, 0.25], # Max groundwater storage
-                'expon': [1.0, 8.0], # Primary groundwater exponential constant
-                'Cgw': [0.0000018, 0.0018], # ^^ reservoir constant
-                'K_lf': [0.0, 1.0], # Lateral flow coefficient
-                'K_nash': [0.0, 1.0] # Nash cascade discharge coefficient
-                }

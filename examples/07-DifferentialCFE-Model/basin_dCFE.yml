@@ -126,31 +126,33 @@ dynamic_inputs:
   - tmin(C)_daymet
   - vp(Pa)_daymet
 
+duplicate_features:
+  - PRCP(mm/day)_nldas
+  - srad(W/m2)_daymet
+  - tmax(C)_daymet
+  - tmin(C)_daymet
+dynamic_conceptual_inputs:
+  - PRCP(mm/day)_nldas_copy1
+  - srad(W/m2)_daymet_copy1
+  - tmin(C)_daymet_copy1
+  - tmax(C)_daymet_copy1
+
 custom_normalization:
-  PRCP(mm/day)_nldas:
-    centering: mean
-    scaling: std
-  PRCP(mm/day)_maurer:
-    centering: mean
-    scaling: std
-  prcp(mm/day)_daymet:
-    centering: mean
-    scaling: std
-  srad(W/m2)_daymet:
-    centering: mean
-    scaling: std
-  tmax(C)_daymet:
-    centering: mean
-    scaling: std
-  tmin(C)_daymet:
-    centering: mean
-    scaling: std
-  vp(Pa)_daymet:
-    centering: mean
-    scaling: std
   QObs(mm/d):
-    centering: mean
-    scaling: std
+    centering: None
+    scaling: None
+  PRCP(mm/day)_nldas_copy1:
+    centering: None
+    scaling: None
+  srad(W/m2)_daymet_copy1:
+    centering: None
+    scaling: None
+  tmin(C)_daymet_copy1:
+    centering: None
+    scaling: None
+  tmax(C)_daymet_copy1:
+    centering: None
+    scaling: None
 
 # which columns to use as target
 target_variables:
