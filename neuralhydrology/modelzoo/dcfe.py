@@ -82,36 +82,38 @@ class dCFE(BaseConceptualModel):
         
 
         # initialize structures to store information on states, built into NH
-        cfe_state, out =  self._initialize_information(conceptual_inputs=x_conceptual)
+        states, out =  self._initialize_information(conceptual_inputs=x_conceptual)
         
         # There are some other initializations from bmi_cfe.py for each epoch, maybe can be incorprorated above?
         
-        # loop through time-steps
-        for j in range(x_conceptual.shape[1]):
-            # Read the forcing (from bmi)
-            precip = x_conceptual[:, j, 0]
-            pet = x_conceptual[:, j, 1]
-            
-            # initialize the CFE model (from bmi)
-            self.cfe_instance = BMI_CFE(
-                Cgw=parameters['satdk'][:,j],
-                satdk=parameters['Cgw'][:,j],
-                cfg=self.cfg,
-                cfe_params=self.data.params,
-            )
-            self.cfe_instance.initialize() # grabs all parameter, fluxes
-
-            # Set precip and PET values in CFE
-            self.cfe_instance.set_value(
-                "atmosphere_water__time_integral_of_precipitation_mass_flux", precip
-                )
-            self.cfe_instance.set_value("water_potential_evaporation_flux", pet)
-            
-            runoff = self.cfe_instance.return_runoff() * self.cfg.conversions.m_to_mm
-            # now storing the total outflow
-            out[:, j, 0] = runoff
-        # loop thru time ends here
+        # Read the forcing (from bmi)
+        precip = x_conceptual[:, : , 0]
+        pet = x_conceptual[:, :, 1]
         
+        # Renaming forcings to CFE approriate file for every epoch
+        self.cfe_instance.set_value(
+            "atmosphere_water__time_integral_of_precipitation_mass_flux", 
+            precip)
+        self.cfe_instance.set_value("water_potential_evaporation_flux", pet)
+        
+        # loop through each batch
+        for i in range(x_conceptual.shape[0]):
+            # loop through time-steps
+            for j in range(x_conceptual.shape[1]):
+                # initialize the CFE model (from bmi)
+                self.cfe_instance = BMI_CFE(
+                    Cgw=parameters['satdk'][i,j],
+                    satdk=parameters['Cgw'][i,j],
+                    cfg=self.cfg,
+                    cfe_params=self.data.params,
+                )
+                self.cfe_instance.initialize() # grabs all parameter, fluxes
+
+                runoff = self.cfe_instance.return_runoff() * 1000 # m_to_mm was 1000
+                # now storing the total outflow
+                out[i, j, 0] = runoff
+            # loop thru time ends here
+            
         return {'y_hat': out, 'parameters': parameters, 'internal_states': cfe_state}
 
     #______________________defining states and parameter properties________________
