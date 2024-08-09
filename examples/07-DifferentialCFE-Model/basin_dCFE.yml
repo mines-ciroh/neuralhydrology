@@ -37,7 +37,9 @@ metrics:
 
 # base model type [lstm, ealstm, cudalstm, embcudalstm, mtslstm]
 # (has to match the if statement in modelzoo/__init__.py)
-model: dcfe
+model: hybrid_model
+
+conceptual_model: dcfe
 
 # prediction head [regression]. Define the head specific parameters below
 head: regression
@@ -55,6 +57,10 @@ initial_forget_bias: 3
 
 # Dropout applied to the output of the LSTM
 output_dropout: 0.4
+
+#### ----- dCFE Specific Configurations ---- #####
+soil_scheme: classic
+partition_scheme: Schaake # Schaake or Xinanjiang
 
 # --- Training configuration -----------------------------------------------------------------------
 
@@ -74,7 +80,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 25
+epochs: 2
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -116,41 +122,41 @@ forcings:
   - nldas_hourly
 
 dynamic_inputs:
-  - convective_fraction_nldas_hourly
-  - longwave_radiation_nldas_hourly
-  - potential_energy_nldas_hourly
-  - potential_evaporation_nldas_hourly
-  - pressure_nldas_hourly
-  - shortwave_radiation_nldas_hourly
-  - specific_humidity_nldas_hourly
-  - temperature_nldas_hourly
-  - total_precipitation_nldas_hourly
-  - wind_u_nldas_hourly
-  - wind_v_nldas_hourly
+  - convective_fraction
+  - longwave_radiation
+  - potential_energy
+  - potential_evaporation
+  - pressure
+  - shortwave_radiation
+  - specific_humidity
+  - temperature
+  - total_precipitation
+  - wind_u
+  - wind_v
 
 duplicate_features:
-  - total_precipitation_nldas_hourly
-  - potential_evaporation_nldas_hourly
+  - total_precipitation
+  - potential_evaporation
 
 dynamic_conceptual_inputs:
-  - total_precipitation_nldas_hourly_copy1
-  - potential_evaporation_nldas_hourly_copy1
+  - total_precipitation_copy1
+  - potential_evaporation_copy1
 
 custom_normalization:
-  qobs_mm_per_hour:
+  QObs(mm/h):
     centering: None
     scaling: None
-  total_precipitation_nldas_hourly_copy1:
+  total_precipitation_copy1:
     centering: None
     scaling: None
-  potential_evaporation_nldas_hourly_copy1:
+  potential_evaporation_copy1:
     centering: None
     scaling: None
 
 # which columns to use as target
 target_variables:
-  - qobs_mm_per_hour
+  - QObs(mm/h) 
 
 # clip negative predictions to zero for all variables listed below. Should be a list, even for single variables.
 clip_targets_to_zero:
-  - qobs_mm_per_hour
+  - QObs(mm/h) 

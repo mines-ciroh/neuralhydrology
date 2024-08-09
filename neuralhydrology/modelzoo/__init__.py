@@ -2,7 +2,7 @@ import warnings
 
 import torch.nn as nn
 
-from neuralhydrology.modelzoo.dcfe import dCFE
+from neuralhydrology.modelzoo.dcfe1 import dCFE
 from neuralhydrology.modelzoo.arlstm import ARLSTM
 from neuralhydrology.modelzoo.cudalstm import CudaLSTM
 from neuralhydrology.modelzoo.mamba import Mamba
@@ -66,8 +66,6 @@ def get_model(cfg: Config) -> nn.Module:
         model = ARLSTM(cfg=cfg)
     elif cfg.model.lower() == "cudalstm":
         model = CudaLSTM(cfg=cfg)
-    elif cfg.model.lower() == "dcfe":
-        model = dCFE(cfg = cfg)
     elif cfg.model.lower() == "ealstm":
         model = EALSTM(cfg=cfg)
     elif cfg.model.lower() == "customlstm":
