@@ -59,8 +59,8 @@ initial_forget_bias: 3
 output_dropout: 0.4
 
 #### ----- dCFE Specific Configurations ---- #####
-soil_scheme: classic
-partition_scheme: Schaake # Schaake or Xinanjiang
+# soil_scheme: classic
+# partition_scheme: Schaake # Schaake or Xinanjiang
 
 # --- Training configuration -----------------------------------------------------------------------
 

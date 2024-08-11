@@ -84,7 +84,7 @@ class HybridModel(BaseModel):
         if cfg.conceptual_model.lower() == "shm":
             conceptual_model = SHM(cfg=cfg)
         elif cfg.conceptual_model.lower() == 'dcfe':
-            conceptual_model = dCFE(cfg = cfg)
+            conceptual_model = dCFE(cfg=cfg)
         else:
             raise NotImplementedError(f"{cfg.conceptual_model} not implemented or not linked in `_get_conceptual_model()`")
 
