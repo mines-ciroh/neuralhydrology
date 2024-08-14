@@ -2,7 +2,7 @@ import warnings
 
 import torch.nn as nn
 
-from neuralhydrology.modelzoo.dcfe1 import dCFE
+from neuralhydrology.modelzoo.dcfe import dCFE
 from neuralhydrology.modelzoo.arlstm import ARLSTM
 from neuralhydrology.modelzoo.cudalstm import CudaLSTM
 from neuralhydrology.modelzoo.mamba import Mamba

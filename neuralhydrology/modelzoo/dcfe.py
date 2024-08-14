@@ -24,24 +24,24 @@ class dCFE(BaseConceptualModel):
     This is an attempt to make a dCFE model based on 
     https://github.com/NWC-CUAHSI-Summer-Institute/ngen-aridity/blob/main/Project%20Manuscript_LongForm.pdf
     
-    Last edited: by Ziyu, 08/03/2024
+    
+    Last edited: by Ziyu, 08/13/2024
     
     General outline:
-    The model takes in output from a NN (like a LSTM), and forcings needed for CFE, which are just PET and Precip. 
+    Takes raw LSTM output, shape them within possible ranges of the Cgw and satdk parameters. Together with
+    other basin-specific parameters and forcings (precip and pet) and pass through the CFE for runoff predictions. 
+    This model is tailored to basin ID: 01022500 right now, but can be worked on later to train multi-basin. 
     
-    This starts out as a code-vomit of cfe.py (the physics) & bmi_cfe.py (configuration & some parameter settings) 
-    into the NH framework and will follow the general formatting of shm.py + Example 02. The idea is to run this 
-    dcfe model via hybrid_model. Classes defined in cfe.py & bmi_cfe.py could be referred to from __init__.
-    
-    This is still being updated and connected into the NH framework. 
-    
-    NEW: Some parameter inputs are basin-specific, this model will be tailored to basin ID: 01022500
-    
-    
+    The physics is done and forward process worked. 
+    TODO: Debug gradient tracking and backpropagation. Clean up code to be more readable. 
+    Some thoughts: 
+    Error message says "one of the variables needed for gradient computation has been modified by an inplace operation".
+    NH might have some ways of automatically track gradients based on what "states"'s values are, which I just made up. 
     """
     
     def __init__(self, cfg: Config):
         super(dCFE, self).__init__(cfg=cfg)
+        
         
         
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
@@ -76,10 +76,37 @@ class dCFE(BaseConceptualModel):
         # get model params thru baseconceptualmodel.py's function, 
         # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
-        
+
 
         # initialize structures to store the information
         states, out = self._initialize_information(conceptual_inputs=x_conceptual)
+        
+        
+        # This contains traits specific to the basin. Cgw is removed from this section for better gradient tracking
+        # and gw_storage removed since it was not used in the code. 
+        # key for elements in basinChracteristics:
+        # - catchment_area_km2: tensor, [batch_size, timestep]. Area of the basin [km2]
+        # - redfdk: tensor, [batch_size, timestep]. Runoff partitioning parameter [-] 
+        # - max_gw_storage: tensor, [batch_size, timestep]. Max groundwater storage [m]. Part of CFE calibration
+        # - expon: tensor, [batch_size, timestep]. A primary groundwater nonlinear reservoir exponential constant [-]. Part of CFE calibration
+        # - alpha_fc: tensor, [batch_size, timestep]. 
+        # - K_nash: tensor, [batch_size, timestep]. Nash cascade discharge coefficient [-]. Part of CFE calibration
+        # - K_lf: tensor, [batch_size, timestep]. Lateral flow coefficient [-]. Part of CFE calibration
+        # - nash_storage: tensor, [batch_size, 2]. 2 columns for 2 "buckets" of Nash cascade
+        # - giuh_ordinates: tensor, [num_coordinates]. 
+        basinCharacteristics = {
+            'catchment_area_km2': 573.6 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device), 
+            'refkdt': 3.8266861353378374 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device),
+            'max_gw_storage': 0.021342666010108112 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device),
+            #Cgw = parameters['Cgw'] # the below is going to be a parameter from NN
+            'expon': 6.72972972972973 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device),
+            #gw_storage = 0.05 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+            'alpha_fc': 0.33 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device),
+            'K_nash': 0.03 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device), 
+            'K_lf': 0.01 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device), 
+            'nash_storage': torch.zeros((x_conceptual.shape[0],2), dtype=torch.float32, device=x_conceptual.device),
+            'giuh_ordinates': torch.tensor([0.93, 0.06, 0.01, 0.0, 0.0], dtype=torch.float32, device=x_conceptual.device)
+        }
         
         # TODO:
         # Change config.py to allow for soil_scheme and partition_scheme to be recongnized as valid in NH, instead of defining it here
@@ -87,21 +114,15 @@ class dCFE(BaseConceptualModel):
         partition_scheme = 'Schaake'
         # Re-organize by creating dicttionaries for variables such as initialization and basin attributes
         
-        # initialize constants for the specific basin
-        # ______from bmi_config_cfe.json________
-        # tensor elements of size [batch_size, time_steps], can be modified later for multi-basin
-        catchment_area_km2 = 573.6 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device) # not sure where they got this from, CAMELS has slightly different num
-        refkdt = 3.8266861353378374 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
-        max_gw_storage = 0.021342666010108112 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device) # max groundwater storage [m], part of calibration
-        # the below is going to be a parameter from NN
-        Cgw = parameters['Cgw'] # primary groundwater nonlinear reservoir constant [m/hr], part of calibration
-        expon = 6.72972972972973 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device) # primary gorundwater nonlinear reservoir exponential constant, part of calibration
-        gw_storage = 0.05 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
-        alpha_fc = 0.33 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
-        K_nash = 0.03 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device) # Nash cascade discharge coefficient, part of calibration
-        K_lf = 0.01 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device) # Lateral flow coefficient, part of calibration
-        nash_storage = torch.zeros((x_conceptual.shape[0],2), dtype=torch.float32, device=x_conceptual.device)
-        giuh_ordinates = torch.tensor([0.93, 0.06, 0.01, 0.0, 0.0], dtype=torch.float32, device=x_conceptual.device)
+        
+        # ________some other constants_______
+        # time-related constants
+        time_step_size = 3600 # num of seconds per hour, forcing is hourly
+        timestep_h = time_step_size/3600
+        timestep_d = timestep_h/24
+        
+        atm_press_Pa = 101325.0
+        unit_weight_water_N_per_m3 = 9810.0
         
             # ______________defining parameters that are specific to this basin, from bmi_config_cfe.json_______
         # soil_params will have tensor elements of size [batch_size, time_steps]. For non-NN parameters, they would be basin-specific
@@ -124,9 +145,9 @@ class dCFE(BaseConceptualModel):
         # __________modified from bmi_cfe.py____________
         ## Groundwater/subsurface reservoir (need to be batchsize x timesteps)
         gw_reservoir = {
-            'storage_max_m': max_gw_storage,
+            'storage_max_m': basinCharacteristics['max_gw_storage'],
             # "coeff_primary": self.Cgw, -> this has been changed to dynamic parameter
-            'exponent_primary': expon,
+            'exponent_primary': basinCharacteristics['expon'],
             'storage_threshold_primary_m': 0 ,
             # The following parameters don't matter. Currently one storage is default. The secoundary storage is turned off.
             'storage_threshold_secondary_m': 0,
@@ -134,15 +155,15 @@ class dCFE(BaseConceptualModel):
             'exponent_secondary': 1,
         }
         gw_reservoir['storage_m'] = gw_reservoir['storage_max_m'] * 0.01
-        volstart = volstart.add(gw_reservoir["storage_m"])
+        # volstart = volstart.add(gw_reservoir["storage_m"])
         vol_in_gw_start = gw_reservoir["storage_m"]
 
         
         ## Soil Reservoir Configuration
-        output_factor_cms = (1/1000) * (catchment_area_km2 * 1000 * 1000) * (1/3600) # this un-normalizes the normalized output area
+        output_factor_cms = (1/1000) * (basinCharacteristics['catchment_area_km2'] * 1000 * 1000) * (1/3600) # this un-normalizes the normalized output area
         # local values to be used in setting up soil reservoir
-        trigger_z_m = 0.5 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device),
-        field_capacity_atm_press_fraction = alpha_fc
+        trigger_z_m = 0.5 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        field_capacity_atm_press_fraction = basinCharacteristics['alpha_fc']
         # soil outflux calculation, Eq. 3
         H_water_table_m = field_capacity_atm_press_fraction * atm_press_Pa/unit_weight_water_N_per_m3
         soil_water_content_at_field_capacity = soil_params["smcmax"] * torch.pow(
@@ -167,82 +188,72 @@ class dCFE(BaseConceptualModel):
             'coeff_primary': parameters['satdk'] * soil_params['slop'] * time_step_size, #Eq.11
             'exponent_primary': 1.0, # fixed to 1 based on Eq. 11
             'storage_threshold_primary_m': field_capacity_storage_threshold_m, # place holder for now, this is smcmax * storage_thresh_pow_term*lim_diff
-            'coeff_secondary': K_lf,  # Controls lateral flow
+            'coeff_secondary': basinCharacteristics['K_lf'],  # Controls lateral flow
             'exponent_secondary': 1.0,  # Controls lateral flow, FIXED to 1 based on the Fred Ogden's document
             'storage_threshold_secondary_m': lateral_flow_threshold_storage_m, ## but this is the same as field_capacity_storage_threshold_m??
         }
         soil_reservoir['storage_m'] = soil_reservoir['storage_max_m'] * 0.6
-        volstart = volstart.add(soil_reservoir['storage_m'])
-        vol_soil_start = soil_reservoir['storage_m']
+        # volstart = volstart.add(soil_reservoir['storage_m'])
+        vol_soil_start = soil_reservoir['storage_m'] # not used
         
         ## Schaake partitioning Constants
-        Schaake_adjusted_magic_constant_by_soil_type = refkdt * satdk / 2.0e-06 # would be basin_size x timestep
+        Schaake_adjusted_magic_constant_by_soil_type = basinCharacteristics['refkdt'] * parameters['satdk'] / 2.0e-06 # would be basin_size x timestep
         Schaake_output_runoff_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
-        infiltration_depth_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
         
-        # ________some other constants_______
-        # time-related constants
-        time_step_size = 3600 # num of seconds per hour, forcing is hourly
-        timestep_h = time_step_size/3600
-        timestep_d = timestep_h/24
-        
-        atm_press_Pa = 101325.0
-        unit_weight_water_N_per_m3 = 9810.0
         
         # reset fluxes that can store information at every time-step. This will be #basin x 
-        surface_runoff_depth_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                             dtype=torch.float32, device=x_conceptual.device)
-        infiltration_depth_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                           dtype=torch.float32, device=x_conceptual.device)
-        actual_et_from_rain_m_per_timestep = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                                         dtype=torch.float32, device=x_conceptual.device)
-        actual_et_from_soil_m_per_timestep = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                                         dtype=torch.float32, device=x_conceptual.device)
-        primary_flux_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                     dtype=torch.float32, device=x_conceptual.device)
-        secondary_flux_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                       dtype=torch.float32, device=x_conceptual.device)
+        surface_runoff_depth_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        infiltration_depth_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        actual_et_from_rain_m_per_timestep = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        actual_et_from_soil_m_per_timestep = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        actual_et_m_per_timestep = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        primary_flux_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        secondary_flux_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
         # below are all added later, not in original initialization
-        primary_flux_from_gw_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                       dtype=torch.float32, device=x_conceptual.device)
-        secondary_flux_from_gw_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                       dtype=torch.float32, device=x_conceptual.device)
-        flux_nash_lateral_runoff_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), 
-                                       dtype=torch.float32, device=x_conceptual.device)
+        primary_flux_from_gw_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        secondary_flux_from_gw_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+        flux_nash_lateral_runoff_m = torch.zeros((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
         
+        
+        N = basinCharacteristics['giuh_ordinates'].shape[0] # giuh_ordinates are rows x 1 column for each basin, used in routing
+            
         # initialized only once, for Nash cascade
         runoff_queue_m_per_timestep = torch.ones((x_conceptual.shape[0], N + 1), dtype=torch.float32, device=x_conceptual.device)
+        
+        # reset ET
+        reduced_potential_et_m_per_timestep = torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
+            
+        # reset volume tracking, part of reset_volume_tracking
+        # this contains all variables from CFE that starts with vol_ and all are 1D tensors of dimension [batch_size]
+        vol = {
+            'PET': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'partition_runoff': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'partition_infilt': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'et_from_rain': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'et_from_soil': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'et_to_atm': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'to_gw': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'to_soil': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'soil_to_gw': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'soil_to_lat_flow': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'from_gw': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'out_giuh': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'in_nash': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'out_nash': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'out': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
+        }
         
         # loop through each timestep
         for j in range(x_conceptual.shape[1]):
             # read forcings for time step
             potential_et_m_per_s = x_conceptual[:,j,1]/1000/3600 # convert PET mm/hr to [m/s]
             timestep_rainfall_input_m = x_conceptual[:,j,0]/1000 # convert precip mm/hr to [m/hr]
-        
-            # reset volume tracking # part of reset_volume_tracking
-            vol_PET = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_partition_runoff = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_partition_infilt = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_et_from_rain = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_et_to_atm = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_to_gw = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_soil_to_gw = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_soil_to_lat_flow = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_from_gw = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_out_giuh = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_in_nash = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            vol_out_nash = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-            volout = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-                
-            # reset ET
-            reduced_potential_et_m_per_timestep = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, 
-                                                              device=x_conceptual.device)
-            
             ####__________Rainfall and ET___________####
             
             ### calculate input rainfall and ET
             potential_et_m_per_timestep = potential_et_m_per_s * time_step_size # results in [m/hr]
-            vol_PET += potential_et_m_per_timestep
+            # potential_et_m_per_timestep = potential_et_m_per_timestep.view(-1,1)
+            vol['PET'] = vol['PET'] + potential_et_m_per_timestep
             reduced_potential_et_m_per_timestep = potential_et_m_per_s * time_step_size # same as potential_et_m_per_timestep?
             
             ### calculate evaporation from rainfall
@@ -275,16 +286,16 @@ class dCFE(BaseConceptualModel):
                 reduced_potential_et = pet - actual_et_from_rain
             
                 # storing results back to the states
-                actual_et_from_rain_m_per_timestep[rainfall_mask, j] = actual_et_from_rain
+                actual_et_from_rain_m_per_timestep[rainfall_mask,j] = actual_et_from_rain
                 # should the below be states????? They are not right now.
                 timestep_rainfall_input_m[rainfall_mask] = reduced_rainfall # adjusting precip based on evaporation from rainfall
                 reduced_potential_et_m_per_timestep[rainfall_mask] = reduced_potential_et # adjusting pet based on evaporation from rainfall
                 
                 ## And track_volume_from_rainfall (should the following be states as well???)
-                vol_et_from_rain += actual_et_from_rain_m_per_timestep[:,j]
-                vol_et_to_atm += actual_et_from_rain_m_per_timestep[:,j]
-                volout += actual_et_from_rain_m_per_timestep[:,j]
-                actual_et_m_per_timestep += actual_et_from_soil_m_per_timestep[:,j]
+                vol['et_from_rain'] = vol['et_from_rain'] + actual_et_from_rain_m_per_timestep[:,j]
+                vol['et_to_atm'] = vol['et_to_atm'] + actual_et_from_rain_m_per_timestep[:,j]
+                vol['out'] = vol['out'] + actual_et_from_rain_m_per_timestep[:,j]
+                actual_et_m_per_timestep[:,j] = actual_et_m_per_timestep[:,j] + actual_et_from_rain_m_per_timestep[:,j]
                 
             ### Calculate evaporation from soil ###
             # for this sub-module, check if the soil scheme is "classic" or "ode". If this is "ode", do nothing.
@@ -300,7 +311,7 @@ class dCFE(BaseConceptualModel):
                     storage = soil_reservoir["storage_m"][combined_mask,j]
                     threshold = soil_reservoir["storage_threshold_primary_m"][combined_mask, j]
                     wilting_point = soil_reservoir["wilting_point_m"][combined_mask, j]
-                    reduced_pet = reduced_potential_et_m_per_timestep[combined_mask, j]
+                    reduced_pet = reduced_potential_et_m_per_timestep[combined_mask]
                     
                     condition1 = storage >= threshold
                     condition2 = (storage > wilting_point) & (storage < threshold)
@@ -326,9 +337,9 @@ class dCFE(BaseConceptualModel):
                     reduced_potential_et_m_per_timestep[combined_mask] = reduced_potential_et_m_per_timestep[combined_mask] - actual_et_from_soil
                     
                     # and now track_volume_et_from_soil. Should the following be states as well??
-                    vol_et_from_soil += actual_et_from_soil_m_per_timestep[:,j]
-                    vol_et_to_atm += actual_et_from_soil_m_per_timestep[:,j]
-                    volout += actual_et_from_soil_m_per_timestep[:,j]
+                    vol['et_from_soil'] = vol['et_from_soil'] + actual_et_from_soil_m_per_timestep[:,j]
+                    vol['et_to_atm'] = vol['et_to_atm'] + actual_et_from_soil_m_per_timestep[:,j]
+                    vol['out'] = vol['out'] + actual_et_from_soil_m_per_timestep[:,j]
             
             ####__________Infiltration partitioning________###
             ### calculate_the_soil_moisture_deficit
@@ -416,7 +427,7 @@ class dCFE(BaseConceptualModel):
                 if free_water_m > 0.0:
                     tension_water_m = soil_reservoir["storage_threshold_primary_m"][:,j]
                 else:
-                    free_water_m = torch.zeros((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                    free_water_m = torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                     tension_water_m = soil_reservoir["storage_m"][:,j]
                 
                 # estimate the maximum free water and tension water available in the soil column
@@ -443,28 +454,28 @@ class dCFE(BaseConceptualModel):
                 NOTE: If the impervious surface runoff due to frozen soils is added,
                 the pervious_runoff_m equation will need to be adjusted by the fraction of pervious area.
                 """
-                a_Xinanjiang_inflection_point_parameter = torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-                b_Xinanjiang_shape_parameter = torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
-                x_Xinanjiang_shape_parameter = torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                a_Xinanjiang_inflection_point_parameter = torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
+                b_Xinanjiang_shape_parameter = torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
+                x_Xinanjiang_shape_parameter = torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                 
                 if (tension_water_m / max_tension_water_m) <= (
-                    0.5 * torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                    0.5 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                     - a_Xinanjiang_inflection_point_parameter
                 ):
                     pervious_runoff_m = timestep_rainfall_input_m * (
                         torch.pow(
                             (
-                                0.5 * torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                                0.5 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                                 - a_Xinanjiang_inflection_point_parameter
                             ),
                             (
-                            torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                            torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                             - b_Xinanjiang_shape_parameter
                             ),
                         )
                         * torch.pow(
                             (
-                                torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                                torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                                 - (tension_water_m / max_tension_water_m)
                             ),
                             b_Xinanjiang_shape_parameter,
@@ -473,20 +484,20 @@ class dCFE(BaseConceptualModel):
                 
                 else:
                     pervious_runoff_m = timestep_rainfall_input_m * (
-                        torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                        torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                         - torch.pow(
                             (
-                                0.5 * torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                                0.5 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                                 + a_Xinanjiang_inflection_point_parameter
                             ),
                             (
-                                torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                                torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                                 - b_Xinanjiang_shape_parameter
                             ),
                         )
                         * torch.pow(
                             (
-                                torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                                torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                                 - (tension_water_m / max_tension_water_m)
                             ),
                             (b_Xinanjiang_shape_parameter),
@@ -498,10 +509,10 @@ class dCFE(BaseConceptualModel):
                 ## the surface_runoff_depth_m.
                 
                 surface_runoff_depth_m[:, j] = pervious_runoff_m * (
-                    0.5 * torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                    0.5 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                     - torch.pow(
                         (
-                            0.5 * torch.ones((x_conceptual.shape[0], 1), dtype=torch.float32, device=x_conceptual.device)
+                            0.5 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
                             - (free_water_m / max_free_water_m)
                         ),
                         x_Xinanjiang_shape_parameter,
@@ -555,9 +566,9 @@ class dCFE(BaseConceptualModel):
             
             ## track_infiltration_and_runoff
             """Tracking runoff & infiltraiton volume with final infiltration & runoff values"""
-            vol_partition_runoff += surface_runoff_depth_m
-            vol_partition_infilt += infiltration_depth_m
-            vol_to_soil += infiltration_depth_m[:,j]
+            vol['partition_runoff'] = vol['partition_runoff'] + surface_runoff_depth_m[:,j]
+            vol['partition_infilt'] = vol['partition_infilt'] + infiltration_depth_m[:,j]
+            vol['to_soil'] = vol['to_soil'] + infiltration_depth_m[:,j]
             
             ####______________Soil moisture reservoir_____________####
             ### Start run_soil_moisture_scheme
@@ -584,7 +595,7 @@ class dCFE(BaseConceptualModel):
                     storage_diff_secondary = soil_reservoir["storage_max_m"][:,j] - soil_reservoir["storage_threshold_secondary_m"][:,j]
                     storage_ratio_secondary = storage_above_threshold_secondary / storage_diff_secondary
                     storage_power_secondary = torch.pow(storage_ratio_secondary, soil_reservoir["exponent_secondary"]) # "exponent_secondary" is also a scalar for now
-                    secondary_flux = soil_reservoir["coeff_secondary"][:j] * storage_power_secondary
+                    secondary_flux = soil_reservoir["coeff_secondary"][:,j] * storage_power_secondary
                     secondary_flux_m[secondary_flux_mask, j] = torch.minimum(secondary_flux, storage_above_threshold_secondary - primary_flux_m)[secondary_flux_mask]
             elif soil_scheme == "ode":
                 print(
@@ -599,12 +610,12 @@ class dCFE(BaseConceptualModel):
                 
             ### update_outflux_from_soil
             flux_perc_m = primary_flux_m[:,j]  # percolation_flux
-            flux_lat_m = secondary_flux_m[:,j]  # lateral_flux
+            flux_lat_m = secondary_flux_m[:,j] # lateral_flux
             
             # If the soil moisture scheme is classic, take out the outflux from soil moisture storage
             # If ODE, outfluxes are already subtracted from the soil moisture storage
             if soil_scheme == "classic":
-                soil_reservoir["storage_m"][:,j] = soil_reservoir["storage_m"][:,j] - flux_perc_m
+                soil_reservoir['storage_m'][:,j] = soil_reservoir['storage_m'][:,j] - flux_perc_m
                 soil_reservoir["storage_m"][:,j] = soil_reservoir["storage_m"][:,j] - flux_lat_m
                 # We can probably combine both above
             elif soil_scheme == "ode":
@@ -622,7 +633,7 @@ class dCFE(BaseConceptualModel):
             # When the groundwater storage is full, the overflowing amount goes to direct runoff
             if torch.any(overflow_mask):
                 # Calculate the amount of overflow
-                diff = (flux_perc_m - gw_reservoir_storage_deficit_m)[overflow_mask].clone() 
+                diff = (flux_perc_m - gw_reservoir_storage_deficit_m)[overflow_mask].clone()
                 # there's another variable previously named as diff, maybe we should choose a better name?
 
                 # Overflow goes to surface runoff
@@ -636,8 +647,8 @@ class dCFE(BaseConceptualModel):
                 gw_reservoir_storage_deficit_m[overflow_mask] = 0.0
 
                 # Track volume
-                vol_partition_runoff[overflow_mask] += diff.detach()
-                vol_partition_infilt[overflow_mask] += diff.detach()
+                vol['partition_runoff'][overflow_mask] = vol['partition_runoff'][overflow_mask] + diff
+                vol['partition_infilt'][overflow_mask] = vol['partition_infilt'][overflow_mask] + diff
                 
             # Otherwise all the percolation flux goes to the storage
             # Apply the "otherwise" part of your condition, to all basins where overflow_mask is False
@@ -646,10 +657,10 @@ class dCFE(BaseConceptualModel):
                 gw_reservoir["storage_m"][no_overflow_mask, j] = gw_reservoir["storage_m"][no_overflow_mask, j] + flux_perc_m[no_overflow_mask].clone()
             
             ### track_volume_from_percolation_and_lateral_flow
-            vol_to_gw += flux_perc_m.detach()
-            vol_soil_to_gw += flux_perc_m.detach()
-            vol_soil_to_lat_flow += flux_lat_m.detach()
-            volout += flux_lat_m.detach()
+            vol['to_gw'] = vol['to_gw'] + flux_perc_m
+            vol['soil_to_gw'] = vol['soil_to_gw'] + flux_perc_m
+            vol['soil_to_lat_flow'] = vol['soil_to_lat_flow'] + flux_lat_m
+            vol['out'] = vol['out'] + flux_lat_m
             
             ### gw_conceptual_reservoir_flux_calc
             """
@@ -662,17 +673,18 @@ class dCFE(BaseConceptualModel):
             """
             # This is basically only running for GW, so changed the variable name from primary_flux to primary_flux_from_gw_m to avoid confusion
             # if reservoir['is_exponential'] == True:
-            flux_exponential = torch.exp(gw_reservoir["exponent_primary"][:,j] * gw_reservoir["storage_m"][:,j]/ gw_reservoir["storage_max_m"][:,j]
-                ) - torch.ones((x_conceptual.shape[0],1), dtype=torch.float32, device=x_conceptual.device)
-            primary_flux_from_gw_m[:,j] = torch.minimum(Cgw[:,j] * flux_exponential, gw_reservoir["storage_m"][:,j]).clone()
+            flux_exponential = torch.exp(
+                gw_reservoir["exponent_primary"][:,j] * gw_reservoir["storage_m"][:,j]/ gw_reservoir["storage_max_m"][:,j]
+                ) - torch.ones((x_conceptual.shape[0]), dtype=torch.float32, device=x_conceptual.device)
+            primary_flux_from_gw_m[:,j] = torch.minimum(parameters['Cgw'][:,j] * flux_exponential, gw_reservoir["storage_m"][:,j]).clone()
             # secondary_flux_from_gw_m = torch.zero((1, cfe_state.num_basins), dtype=torch.float64) # this is not needed since this was initialized before
             flux_from_deep_gw_to_chan_m = primary_flux_from_gw_m[:,j] + secondary_flux_from_gw_m[:,j]
             
             ### track_volume_from_gw
             gw_reservoir["storage_m"][:,j] = gw_reservoir["storage_m"][:,j] - flux_from_deep_gw_to_chan_m.clone()
             # Mass balance
-            vol_from_gw += flux_from_deep_gw_to_chan_m.detach()
-            volout += flux_from_deep_gw_to_chan_m.detach()
+            vol['from_gw'] = vol['from_gw'] + flux_from_deep_gw_to_chan_m
+            vol['out'] = vol['out'] + flux_from_deep_gw_to_chan_m
             
             ####________________surface runoff routing____________
             ### convolutional_integral
@@ -686,14 +698,13 @@ class dCFE(BaseConceptualModel):
             Outputs:
                 runoff_queue_m_per_timestep
             """
-            N = giuh_ordinates.shape[0] # giuh_ordinates are rows x 1 column for each basin
             
             # Set the last element in the runoff queue as zero (runoff_queue[:-1] were pushed forward in the last timestep)
             runoff_queue_m_per_timestep[:, N] = 0.0
 
             # Add incoming surface runoff to the runoff queue
             runoff_queue_m_per_timestep[:, :-1] = runoff_queue_m_per_timestep[:, :-1] + (
-            giuh_ordinates * surface_runoff_depth_m[:,j].expand(N, -1).T
+            basinCharacteristics['giuh_ordinates'] * surface_runoff_depth_m[:,j].expand(N, -1).T
             )
             # Take the top one in the runoff queue as runoff to channel
             flux_giuh_runoff_m = runoff_queue_m_per_timestep[:, 0].clone()
@@ -702,8 +713,8 @@ class dCFE(BaseConceptualModel):
             runoff_queue_m_per_timestep[:, :-1] = runoff_queue_m_per_timestep[:, 1:].clone()
 
             ### track_volume_from_giuh
-            vol_out_giuh += flux_giuh_runoff_m.detach()
-            volout += flux_giuh_runoff_m.detach()
+            vol['out_giuh'] = vol['out_giuh'] + flux_giuh_runoff_m
+            vol['out'] = vol['out'] + flux_giuh_runoff_m
             
             ####_______________lateral flow routing_______________
             ### nash_cascade
@@ -712,40 +723,43 @@ class dCFE(BaseConceptualModel):
             arrival of the lateral flow into the channel
             Currently only accepts the same number of nash reservoirs for all watersheds
             """
-            num_reservoirs = nash_storage.shape[1] # 2 reservoirs
-            nash_storage_timestep = nash_storage.clone() 
+            num_reservoirs = basinCharacteristics['nash_storage'].shape[1] # 2 reservoirs
+            nash_storage_timestep = basinCharacteristics['nash_storage'].clone() 
             # ^^this clones the status of the nash_staroage from a state,I modified it to be nash_storage_timestep instead of nash_storage due to naming issues that need to be fixed later
 
             # Calculate the discharge from each Nash storage
-            Q = K_nash[:,j] * nash_storage_timestep # first pass would be 0
+            Q = basinCharacteristics['K_nash'][:,j].unsqueeze(1) * nash_storage_timestep # first pass would be 0
 
             # Update Nash storage with discharge
             nash_storage_timestep = nash_storage_timestep - Q # first pass would be 0
 
             # The first storage receives the lateral flow outflux from soil storage
-            nash_storage_timestep[:, 0] = nash_storage_timestep[:, 0] + flux_lat_m.squeeze()
+            nash_storage_timestep[:, 0] = nash_storage_timestep[:, 0] + flux_lat_m
 
             # The remaining storage receives the discharge from the upper Nash storage
             if num_reservoirs > 1:
-                nash_storage[:, 1:] = nash_storage[:, 1:] + Q[:, :-1]
+                basinCharacteristics['nash_storage'][:, 1:] = basinCharacteristics['nash_storage'][:, 1:] + Q[:, :-1]
 
             # Update the state
-            nash_storage = nash_storage_timestep.clone()
+            basinCharacteristics['nash_storage'] = nash_storage_timestep.clone()
 
             # The final discharge at the timestep from Nash cascade is from the lowermost Nash storage
             flux_nash_lateral_runoff_m[:,j] = Q[:, -1].clone()
 
             ### track_volume_from_nash_cascade
-            vol_in_nash += flux_lat_m.detach()
-            vol_out_nash += flux_nash_lateral_runoff_m[:,j].detach()
+            vol['in_nash'] = vol['in_nash'] + flux_lat_m
+            vol['out_nash'] = vol['out_nash'] + flux_nash_lateral_runoff_m[:,j]
             
             ### add_up_total_flux_discharge
             flux_Qout_m = flux_giuh_runoff_m + flux_nash_lateral_runoff_m[:,j] + flux_from_deep_gw_to_chan_m
-            total_discharge = flux_Qout_m * catchment_area_km2[:,j] * 1000000.0/ time_step_size
+            total_discharge = flux_Qout_m * basinCharacteristics['catchment_area_km2'][:,j] * 1000000.0/ time_step_size
             
             states['gw_reservoir_storage_m'][:,j] = gw_reservoir['storage_m'][:,j]
             states['soil_reservoir_storage_m'][:,j] = soil_reservoir['storage_m'][:,j]
             out[:,j,0] = total_discharge
+            
+            # NH debugging code for grads
+            torch.autograd.set_detect_anomaly(True)
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 
