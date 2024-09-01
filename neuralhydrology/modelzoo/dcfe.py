@@ -25,18 +25,21 @@ class dCFE(BaseConceptualModel):
     https://github.com/NWC-CUAHSI-Summer-Institute/ngen-aridity/blob/main/Project%20Manuscript_LongForm.pdf
     
     
-    Last edited: by Ziyu, 08/13/2024
+    Last edited: by Ziyu, 09/01/2024
     
     General outline:
     Takes raw LSTM output, shape them within possible ranges of the Cgw and satdk parameters. Together with
     other basin-specific parameters and forcings (precip and pet) and pass through the CFE for runoff predictions. 
     This model is tailored to basin ID: 01022500 right now, but can be worked on later to train multi-basin. 
     
-    The physics is done and forward process worked. 
-    TODO: Debug gradient tracking and backpropagation. Clean up code to be more readable. 
-    Some thoughts: 
-    Error message says "one of the variables needed for gradient computation has been modified by an inplace operation".
-    NH might have some ways of automatically track gradients based on what "states"'s values are, which I just made up. 
+    The physics is done and forward process & backward processes work so far with this specific basin and time-period of data. 
+    
+    TODO: 
+    Replace all torch.minimum() with torch.which()
+    Debug/double check for correct physical model & magnitudes
+    Defining "states" differently to help organize better
+    Incorporate multi-basin training
+    Improve readability
     """
     
     def __init__(self, cfg: Config):
@@ -676,7 +679,11 @@ class dCFE(BaseConceptualModel):
             flux_exponential = torch.exp(
                 gw_reservoir["exponent_primary"][:,j] * gw_reservoir["storage_m"][:,j]/ gw_reservoir["storage_max_m"][:,j]
                 ) - torch.ones((x_conceptual.shape[0]), dtype=torch.float32, device=x_conceptual.device)
-            primary_flux_from_gw_m[:,j] = torch.minimum(parameters['Cgw'][:,j] * flux_exponential, gw_reservoir["storage_m"][:,j]).clone()
+            primary_flux_from_gw_m[:,j] = torch.where(
+                parameters['Cgw'][:, j] * flux_exponential < gw_reservoir["storage_m"][:, j],
+                parameters['Cgw'][:, j] * flux_exponential,
+                gw_reservoir["storage_m"][:, j]
+                )
             # secondary_flux_from_gw_m = torch.zero((1, cfe_state.num_basins), dtype=torch.float64) # this is not needed since this was initialized before
             flux_from_deep_gw_to_chan_m = primary_flux_from_gw_m[:,j] + secondary_flux_from_gw_m[:,j]
             
@@ -752,14 +759,16 @@ class dCFE(BaseConceptualModel):
             
             ### add_up_total_flux_discharge
             flux_Qout_m = flux_giuh_runoff_m + flux_nash_lateral_runoff_m[:,j] + flux_from_deep_gw_to_chan_m
-            total_discharge = flux_Qout_m * basinCharacteristics['catchment_area_km2'][:,j] * 1000000.0/ time_step_size
-            
+    
+            #states[] are arbitrary for now, can be modified later.
             states['gw_reservoir_storage_m'][:,j] = gw_reservoir['storage_m'][:,j]
             states['soil_reservoir_storage_m'][:,j] = soil_reservoir['storage_m'][:,j]
-            out[:,j,0] = total_discharge
+            
+            #discharge is flux_Qout_m times catchment_area [km^2] times some constant and divide by time stepsize???
+            out[:,j,0] = flux_Qout_m * basinCharacteristics['catchment_area_km2'][:,j] * 1000000.0/ time_step_size 
             
             # NH debugging code for grads
-            torch.autograd.set_detect_anomaly(True)
+            # torch.autograd.set_detect_anomaly(True)
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 
