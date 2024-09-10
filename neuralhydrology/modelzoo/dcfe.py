@@ -35,7 +35,6 @@ class dCFE(BaseConceptualModel):
     The physics is done and forward process & backward processes work so far with this specific basin and time-period of data. 
     
     TODO: 
-    Replace all torch.minimum() with torch.which()
     Debug/double check for correct physical model & magnitudes
     Defining "states" differently to help organize better
     Incorporate multi-basin training
@@ -120,19 +119,19 @@ class dCFE(BaseConceptualModel):
         
         # ________some other constants_______
         # time-related constants
-        time_step_size = 3600 # num of seconds per hour, forcing is hourly
-        timestep_h = time_step_size/3600
-        timestep_d = timestep_h/24
+        time_step_size = 3600 # num of [seconds] per hour, we go by 3600s each time step
+        timestep_h = time_step_size/3600 # time step in [hours]
+        timestep_d = timestep_h/24 # time step in [days]
         
-        atm_press_Pa = 101325.0
-        unit_weight_water_N_per_m3 = 9810.0
+        atm_press_Pa = 101325.0 # [Pa]
+        unit_weight_water_N_per_m3 = 9810.0 # [N/m3]
         
             # ______________defining parameters that are specific to this basin, from bmi_config_cfe.json_______
         # soil_params will have tensor elements of size [batch_size, time_steps]. For non-NN parameters, they would be basin-specific
         # but right now it's just 01022500 so these constants are at every cell.
         # In the future, they can be defined differently based on different basins. 
         soil_params = {
-            'depth': 2.0 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device), # not sure where they got these values, they don't match CAMELS
+            'depth': 2.0 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device), # not sure where they got these values, they don't match CAMELS, [m]
             'bb': 8.013513513513514 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device), # exponent on Clapp-Hornberger function, part of calibration
             # satdk is from NH
             'satdk': parameters['satdk'], # saturated hydraulic conductivity [m/hr], part of calibration
@@ -168,7 +167,7 @@ class dCFE(BaseConceptualModel):
         trigger_z_m = 0.5 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
         field_capacity_atm_press_fraction = basinCharacteristics['alpha_fc']
         # soil outflux calculation, Eq. 3
-        H_water_table_m = field_capacity_atm_press_fraction * atm_press_Pa/unit_weight_water_N_per_m3
+        H_water_table_m = field_capacity_atm_press_fraction * atm_press_Pa/unit_weight_water_N_per_m3 # [m]
         soil_water_content_at_field_capacity = soil_params["smcmax"] * torch.pow(
             H_water_table_m / soil_params["satpsi"], (1.0 / soil_params["bb"]))
         Omega = H_water_table_m - trigger_z_m
@@ -321,16 +320,21 @@ class dCFE(BaseConceptualModel):
                     
                     actual_et_from_soil = torch.where(
                         condition1, 
-                        torch.minimum(reduced_pet, storage), # If storage is above the FC threshold, AET = PET
+                        torch.where(
+                            reduced_pet < storage, 
+                            reduced_pet,
+                            storage),# If storage is above the FC threshold, AET = PET
                         torch.where(
                             condition2,
-                            torch.minimum(
+                            torch.where(
+                                (storage - wilting_point)/(threshold - wilting_point) * reduced_pet < storage,
                                 (storage - wilting_point)/(threshold - wilting_point) * reduced_pet,
-                                storage,
-                            ), # If storage is in bewteen the FC and WP threshold, calculate the Budyko type of AET
+                                storage
+                            ),# If storage is in bewteen ßthe FC and WP threshold, calculate the Budyko type of AET
                             torch.zeros_like(storage) # If storage is less than WP, AET=0
                         )
                     )
+                    
                     
                     # update the timestep's et from soil????
                     actual_et_from_soil_m_per_timestep[combined_mask, j] = actual_et_from_soil
@@ -589,8 +593,11 @@ class dCFE(BaseConceptualModel):
                     storage_ratio_primary = storage_above_threshold_primary / storage_diff_primary
                     storage_power_primary = torch.pow(storage_ratio_primary, soil_reservoir["exponent_primary"]) # "exponent primary" is scalar for now but can try to init as tensor
                     primary_flux = soil_reservoir["coeff_primary"][:,j] * storage_power_primary
-                    primary_flux_m[primary_flux_mask, j] = torch.minimum(primary_flux, storage_above_threshold_primary)[primary_flux_mask]
-                
+                    primary_flux_m[primary_flux_mask, j] = {torch.where(
+                        primary_flux < storage_above_threshold_primary, 
+                        primary_flux, 
+                        storage_above_threshold_primary)[primary_flux_mask]
+                    }
                 # Calculate secondary flux
                 storage_above_threshold_secondary = soil_reservoir["storage_m"][:,j] - soil_reservoir["storage_threshold_secondary_m"][:,j]
                 secondary_flux_mask = storage_above_threshold_secondary > 0.0
@@ -599,7 +606,13 @@ class dCFE(BaseConceptualModel):
                     storage_ratio_secondary = storage_above_threshold_secondary / storage_diff_secondary
                     storage_power_secondary = torch.pow(storage_ratio_secondary, soil_reservoir["exponent_secondary"]) # "exponent_secondary" is also a scalar for now
                     secondary_flux = soil_reservoir["coeff_secondary"][:,j] * storage_power_secondary
-                    secondary_flux_m[secondary_flux_mask, j] = torch.minimum(secondary_flux, storage_above_threshold_secondary - primary_flux_m)[secondary_flux_mask]
+                    secondary_flux_m[secondary_flux_mask, j] = {
+                        torch.where(
+                        secondary_flux < (storage_above_threshold_secondary - primary_flux_m),
+                        secondary_flux,
+                        storage_above_threshold_secondary - primary_flux_m)[secondary_flux_mask]
+                    }
+
             elif soil_scheme == "ode":
                 print(
                     "ODE for soil scheme is not yet implemented."
