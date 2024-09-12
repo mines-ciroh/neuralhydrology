@@ -187,7 +187,7 @@ class dCFE(BaseConceptualModel):
         soil_reservoir = {
             'wilting_point_m': soil_params['wltsmc']*soil_params['D'],
             'storage_max_m': soil_params['smcmax']*soil_params['D'],
-            'coeff_primary': parameters['satdk'] * soil_params['slop'] * time_step_size, #Eq.11
+            'coeff_primary': parameters['satdk'] * soil_params['slop']/time_step_size, #Eq.11, unit [m/hr] * [3600s]??? Should be m/s
             'exponent_primary': 1.0, # fixed to 1 based on Eq. 11
             'storage_threshold_primary_m': field_capacity_storage_threshold_m, # place holder for now, this is smcmax * storage_thresh_pow_term*lim_diff
             'coeff_secondary': basinCharacteristics['K_lf'],  # Controls lateral flow
@@ -778,7 +778,8 @@ class dCFE(BaseConceptualModel):
             states['soil_reservoir_storage_m'][:,j] = soil_reservoir['storage_m'][:,j]
             
             #discharge is flux_Qout_m times catchment_area [km^2] times some constant and divide by time stepsize???
-            out[:,j,0] = flux_Qout_m * basinCharacteristics['catchment_area_km2'][:,j] * 1000000.0/ time_step_size 
+            # out[:,j,0] = flux_Qout_m * basinCharacteristics['catchment_area_km2'][:,j] * 1000000.0/ time_step_size 
+            out[:,j,0] = flux_Qout_m*1000 
             
             # NH debugging code for grads
             # torch.autograd.set_detect_anomaly(True)
