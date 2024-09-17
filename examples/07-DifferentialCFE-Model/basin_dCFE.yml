@@ -9,10 +9,10 @@ validation_basin_file: 1_basin.txt
 test_basin_file: 1_basin.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
-train_start_date: "01/10/2010"
-train_end_date: "30/09/2011"
+train_start_date: "01/10/2000"
+train_end_date: "30/09/2013"
 validation_start_date: "01/10/1980"
-validation_end_date: "30/09/1981"
+validation_end_date: "30/09/1989"
 test_start_date: "01/10/1989"
 test_end_date: "30/09/1990"
 
@@ -22,7 +22,7 @@ device: cuda:0
 # --- Validation configuration ---------------------------------------------------------------------
 
 # specify after how many epochs to perform validation
-validate_every: 3
+validate_every: 1
 
 # specify how many random basins to use for validation
 validate_n_random_basins: 1
@@ -68,7 +68,7 @@ output_dropout: 0.4
 optimizer: Adam
 
 # specify loss [MSE, NSE, RMSE]
-loss: MSE
+loss: NSE
 
 # specify learning rates to use starting at specific epochs (0 is the initial learning rate)
 learning_rate:
@@ -80,7 +80,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 2
+epochs: 1
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -134,16 +134,21 @@ dynamic_inputs:
   - wind_u
   - wind_v
 
+#static_attributes:
+#  - elev_mean
+#  - slope_mean
+
 duplicate_features:
   - total_precipitation
   - potential_evaporation
+
 
 dynamic_conceptual_inputs:
   - total_precipitation_copy1
   - potential_evaporation_copy1
 
 custom_normalization:
-  QObs(mm/h):
+  QObs_CAMELS(mm/h):
     centering: None
     scaling: None
   total_precipitation_copy1:
@@ -155,8 +160,8 @@ custom_normalization:
 
 # which columns to use as target
 target_variables:
-  - QObs(mm/h) 
+  - QObs_CAMELS(mm/h)
 
 # clip negative predictions to zero for all variables listed below. Should be a list, even for single variables.
 clip_targets_to_zero:
-  - QObs(mm/h) 
+  - QObs_CAMELS(mm/h)

@@ -4,9 +4,9 @@
 experiment_name: testHybrid_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 1_basin.txt
-validation_basin_file: 1_basin.txt
-test_basin_file: 1_basin.txt
+train_basin_file: 2_basin.txt
+validation_basin_file: 2_basin.txt
+test_basin_file: 2_basin.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/1999"
@@ -79,7 +79,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 50
+epochs: 1
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -130,6 +130,10 @@ dynamic_inputs:
   - tmax(C)_daymet
   - tmin(C)_daymet
   - vp(Pa)_daymet
+
+static_attributes:
+  - elev_mean
+  - slope_mean
 
 duplicate_features:
   - PRCP(mm/day)_nldas
