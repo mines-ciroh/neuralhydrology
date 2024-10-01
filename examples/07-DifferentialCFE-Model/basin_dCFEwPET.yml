@@ -1,7 +1,7 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: testdCFE_run
+experiment_name: testdCFEpet_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -12,9 +12,9 @@ test_basin_file: 1_basin.txt
 train_start_date: "01/10/2000"
 train_end_date: "30/09/2013"
 validation_start_date: "01/10/1980"
-validation_end_date: "30/09/1989"
-test_start_date: "01/10/1989"
-test_end_date: "30/09/1990"
+validation_end_date: "30/09/1999"
+test_start_date: "01/10/1999"
+test_end_date: "30/09/2000"
 
 # which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
 device: cuda:0
@@ -22,7 +22,7 @@ device: cuda:0
 # --- Validation configuration ---------------------------------------------------------------------
 
 # specify after how many epochs to perform validation
-validate_every: 1
+validate_every: 2
 
 # specify how many random basins to use for validation
 validate_n_random_basins: 1
@@ -80,7 +80,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 15
+epochs: 5
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -129,10 +129,7 @@ dynamic_inputs:
   - potential_energy
   - potential_evaporation
   - pressure
-  - shortwave_radiation
   - specific_humidity
-  - temperature
-  - total_precipitation
   - wind_u
   - wind_v
 
@@ -140,24 +137,21 @@ dynamic_inputs:
 #  - elev_mean
 #  - slope_mean
 
-duplicate_features:
-  - total_precipitation
-  - potential_evaporation
-
 dynamic_conceptual_inputs:
-  - total_precipitation_copy1
-  - potential_evaporation_copy1
+  - total_precipitation
+  - temperature
+  - shortwave_radiation
 
-custom_normalization:
-  QObs_CAMELS(mm/h):
-    centering: None
-    scaling: None
-  total_precipitation_copy1:
-    centering: None
-    scaling: None
-  potential_evaporation_copy1:
-    centering: None
-    scaling: None
+#custom_normalization:
+#  QObs_CAMELS(mm/h):
+#    centering: None
+#    scaling: None
+#  total_precipitation_copy1:
+#    centering: None
+#    scaling: None
+#  potential_evaporation_copy1:
+#    centering: None
+#    scaling: None
 
 # which columns to use as target
 target_variables:

@@ -223,6 +223,7 @@ class dCFE(BaseConceptualModel):
             'out': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
         }
         
+        
         # loop through each timestep
         for j in range(x_conceptual.shape[1]):
             # reset fluxes that can store information at every time-step. This will be #basin x 
@@ -243,16 +244,19 @@ class dCFE(BaseConceptualModel):
             flux_from_deep_gw_to_chan_m = torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
             
             
-            # read forcings for time step
-            potential_et_m_per_s = x_conceptual[:,j,1]/1000/3600 # convert PET mm/hr to [m/s]
+            #___________Get forcings_____________
+            # convert Precip from [mm/hr] to [m/hr], first conceptual_input must be precip
             timestep_rainfall_input_m = x_conceptual[:,j,0]/1000 # convert precip mm/hr to [m/hr]
+            # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016
+            lambd = 2.501 - 0.002361 * x_conceptual[:,j,1] # x_conceptual[:,:,1] is mean temp
+            shortRad = x_conceptual[:,j,2]/1000000 # convert shortwave radiation [W/m^2 hr] to [MW/m^2 hr]
+            potential_et_m_per_timestep = (0.025 * shortRad * (x_conceptual[:,j,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
             ####__________Rainfall and ET___________####
             
             ### calculate input rainfall and ET
-            potential_et_m_per_timestep = potential_et_m_per_s * time_step_size # results in [m/hr]
             # potential_et_m_per_timestep = potential_et_m_per_timestep.view(-1,1)
             vol['PET'] = vol['PET'] + potential_et_m_per_timestep
-            reduced_potential_et_m_per_timestep = potential_et_m_per_s * time_step_size # same as potential_et_m_per_timestep?
+            reduced_potential_et_m_per_timestep = potential_et_m_per_timestep # same as potential_et_m_per_timestep?
             
             ### calculate evaporation from rainfall
             # Creating a mask for elements where timestep_rainfall_input_m > 0
