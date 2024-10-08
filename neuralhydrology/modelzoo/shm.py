@@ -130,7 +130,7 @@ class SHM(BaseConceptualModel):
             states['sb'][:, j] = sb
 
             # total outflow
-            out[:, j, 0] = qf_out + qi_out + qb_out  # [mm]
+            out[:, j, 0] = qf_out + qi_out + qb_out # [mm]
 
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 

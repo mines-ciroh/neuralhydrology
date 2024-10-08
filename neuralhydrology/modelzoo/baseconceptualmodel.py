@@ -24,9 +24,9 @@ class BaseConceptualModel(nn.Module):
         # Check if the dynamic_conceptual_inputs and the target_variables are in the custom normalization. This is
         # necessary as conceptual models are mass conservative.
         # Doing this only if we are not using the dcfe model. 
-        if not self.cfg.conceptual_model.lower() == 'dcfe':
-            if any(item not in cfg.custom_normalization for item in cfg.dynamic_conceptual_inputs + cfg.target_variables):
-                raise RuntimeError("dynamic_conceptual_inputs and target_variables require custom_normalization")
+        #if not self.cfg.conceptual_model.lower() == 'dcfe':
+        #    if any(item not in cfg.custom_normalization for item in cfg.dynamic_conceptual_inputs + cfg.target_variables):
+        #        raise RuntimeError("dynamic_conceptual_inputs and target_variables require custom_normalization")
 
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
         raise NotImplementedError

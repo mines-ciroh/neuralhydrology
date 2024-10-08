@@ -1,12 +1,12 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: testHybrid_run
+experiment_name: testSHM_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 2_basin.txt
-validation_basin_file: 2_basin.txt
-test_basin_file: 2_basin.txt
+train_basin_file: 1_basin.txt
+validation_basin_file: 1_basin.txt
+test_basin_file: 1_basin.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/1999"
@@ -22,7 +22,7 @@ device: cpu
 # --- Validation configuration ---------------------------------------------------------------------
 
 # specify after how many epochs to perform validation
-validate_every: 3
+validate_every: 2
 
 # specify how many random basins to use for validation
 validate_n_random_basins: 1
@@ -79,7 +79,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 1
+epochs: 5
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -131,9 +131,9 @@ dynamic_inputs:
   - tmin(C)_daymet
   - vp(Pa)_daymet
 
-static_attributes:
-  - elev_mean
-  - slope_mean
+#static_attributes:
+#  - elev_mean
+#  - slope_mean
 
 duplicate_features:
   - PRCP(mm/day)_nldas

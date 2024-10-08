@@ -183,7 +183,7 @@ class dCFE(BaseConceptualModel):
         soil_reservoir = {
             'wilting_point_m': soil_params['wltsmc']*soil_params['D'],
             'storage_max_m': soil_params['smcmax']*soil_params['D'],
-            'coeff_primary': parameters['satdk'] * soil_params['slop'].unsqueeze(1)/time_step_size, #Eq.11, unit [m/hr] * [3600s]??? Should be m/s
+            'coeff_primary': parameters['satdk'] * soil_params['slop'].unsqueeze(1)*time_step_size, #Eq.11, unit [m/s] * [3600s] now its [m/hr]
             'exponent_primary': 1.0, # fixed to 1 based on Eq. 11
             'storage_threshold_primary_m': field_capacity_storage_threshold_m, # place holder for now, this is smcmax * storage_thresh_pow_term*lim_diff
             'coeff_secondary': basinCharacteristics['K_lf'],  # Controls lateral flow
@@ -201,7 +201,6 @@ class dCFE(BaseConceptualModel):
             
         # initialized only once, for Nash cascade
         runoff_queue_m_per_timestep = torch.ones((x_conceptual.shape[0], N + 1), dtype=torch.float32, device=x_conceptual.device)
-        
         
         # reset volume tracking, part of reset_volume_tracking
         # this contains all variables from CFE that starts with vol_ and all are 1D tensors of dimension [batch_size]
@@ -223,6 +222,7 @@ class dCFE(BaseConceptualModel):
             'out': torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
         }
         
+        num_reservoirs = basinCharacteristics['nash_storage'].shape[1] # 2 reservoirs
         
         # loop through each timestep
         for j in range(x_conceptual.shape[1]):
@@ -247,16 +247,19 @@ class dCFE(BaseConceptualModel):
             #___________Get forcings_____________
             # convert Precip from [mm/hr] to [m/hr], first conceptual_input must be precip
             timestep_rainfall_input_m = x_conceptual[:,j,0]/1000 # convert precip mm/hr to [m/hr]
-            # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016
+            # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016 "https://github.com/pyet-org/pyet/blob/master/pyet/radiation.py"
             lambd = 2.501 - 0.002361 * x_conceptual[:,j,1] # x_conceptual[:,:,1] is mean temp
-            shortRad = x_conceptual[:,j,2]/1000000 # convert shortwave radiation [W/m^2 hr] to [MW/m^2 hr]
-            potential_et_m_per_timestep = (0.025 * shortRad * (x_conceptual[:,j,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
+            shortRad = x_conceptual[:,j,2]*3600/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 hr]
+            pet_m_per_timestep_calc = (0.025 * shortRad * (x_conceptual[:,j,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
+            pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
+            potential_et_m_per_timestep = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
+            
             ####__________Rainfall and ET___________####
             
             ### calculate input rainfall and ET
             # potential_et_m_per_timestep = potential_et_m_per_timestep.view(-1,1)
             vol['PET'] = vol['PET'] + potential_et_m_per_timestep
-            reduced_potential_et_m_per_timestep = potential_et_m_per_timestep # same as potential_et_m_per_timestep?
+            reduced_potential_et_m_per_timestep = potential_et_m_per_timestep 
             
             ### calculate evaporation from rainfall
             # Creating a mask for elements where timestep_rainfall_input_m > 0
@@ -741,7 +744,7 @@ class dCFE(BaseConceptualModel):
             arrival of the lateral flow into the channel
             Currently only accepts the same number of nash reservoirs for all watersheds
             """
-            num_reservoirs = basinCharacteristics['nash_storage'].shape[1] # 2 reservoirs
+            
             nash_storage_timestep = basinCharacteristics['nash_storage'].clone() 
            
             # Calculate the discharge from each Nash storage
@@ -768,15 +771,16 @@ class dCFE(BaseConceptualModel):
             vol['out_nash'] = vol['out_nash'] + flux_nash_lateral_runoff_m
             
             ### add_up_total_flux_discharge
-            flux_Qout_m = flux_giuh_runoff_m + flux_nash_lateral_runoff_m + flux_from_deep_gw_to_chan_m
-    
+            flux_Qout_m = flux_giuh_runoff_m + flux_nash_lateral_runoff_m  + flux_from_deep_gw_to_chan_m
+            #flux_Qout_m = parameters['Cgw'][:,j] + parameters['satdk'][:,j]
+            
             #states[] are arbitrary for now, can be modified later.
             states['gw_reservoir_storage_m'][:,j] = gw_reservoir['storage_m']
             states['soil_reservoir_storage_m'][:,j] = soil_reservoir['storage_m']
             states['first_nash_storage'][:,j] = basinCharacteristics['nash_storage'][:,1]
             
             # out[:,j,0] = flux_Qout_m * basinCharacteristics['catchment_area_km2'][:,j] * 1000000.0/ time_step_size is incorrect
-            out[:,j,0] = flux_Qout_m*1000 
+            out[:,j,0] = flux_Qout_m*1000 # convert run-off to mm/hr
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 
