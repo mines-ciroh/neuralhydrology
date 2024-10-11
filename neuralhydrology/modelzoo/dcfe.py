@@ -625,7 +625,7 @@ class dCFE(BaseConceptualModel):
                 
             ### update_outflux_from_soil
             flux_perc_m = primary_flux_m  # percolation_flux
-            flux_lat_m = secondary_flux_m# lateral_flux
+            flux_lat_m = secondary_flux_m # lateral_flux
             
             # If the soil moisture scheme is classic, take out the outflux from soil moisture storage
             # If ODE, outfluxes are already subtracted from the soil moisture storage
@@ -755,7 +755,8 @@ class dCFE(BaseConceptualModel):
 
             # The remaining storage receives the discharge from the upper Nash storage
             if num_reservoirs > 1:
-                basinCharacteristics['nash_storage'][:, 1:] = basinCharacteristics['nash_storage'][:, 1:] + Q[:, :-1]
+                nash_storage_timestep[:, 1:] = nash_storage_timestep[:, 1:]+ Q[:, :-1]
+            #    basinCharacteristics['nash_storage'][:, 1:] = basinCharacteristics['nash_storage'][:, 1:] + Q[:, :-1]
 
             # Update the state
             basinCharacteristics['nash_storage'] = nash_storage_timestep.clone()
