@@ -6,14 +6,14 @@ from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
 
 # packages from cfe.py
-import time
+#import time
 import numpy as np
 import pandas as pd
-import sys
-import math
+#import sys
+#import math
 # import torch
 import torch.nn.functional as F
-from torchdiffeq import odeint
+#from torchdiffeq import odeint
 
 # packages from bmi_cfe.py
 import matplotlib.pyplot as plt
@@ -25,19 +25,18 @@ class dCFE(BaseConceptualModel):
     https://github.com/NWC-CUAHSI-Summer-Institute/ngen-aridity/blob/main/Project%20Manuscript_LongForm.pdf
     
     
-    Last edited: by Ziyu, 09/01/2024
+    Last edited: by Ziyu, 10/09/2024
     
     General outline:
     Takes raw LSTM output, shape them within possible ranges of the Cgw and satdk parameters. Together with
-    other basin-specific parameters and forcings (precip and pet) and pass through the CFE for runoff predictions. 
-    This model is tailored to basin ID: 01022500 right now, but can be worked on later to train multi-basin. 
+    other basin-specific parameters and forcings (precip, and srad + tmean for pet) and pass through the CFE
+    for runoff predictions. This model is tailored to basin ID: 01022500 right now, but can be worked on 
+    later to train multi-basin. 
     
     The physics is done and forward process & backward processes work so far with this specific basin and time-period of data. 
     
     TODO: 
     Debug/double check for correct physical model & magnitudes
-    Defining "states" differently to help organize better
-    Incorporate multi-basin training
     Improve readability
     """
     
@@ -54,7 +53,7 @@ class dCFE(BaseConceptualModel):
         x_conceptual: torch.Tensor
             Tensor of size [batch_size, time_steps, n_inputs]. The batch_size is associated with a certain basin and a
             certain prediction period. The time_steps refer to the number of time steps (e.g. days) that our conceptual
-            model is going to be run for. The n_inputs is the number of normalized forcings. 
+            model is going to be run for. The n_inputs is the number of forcing inputs. 
             This will be used in the NN part only to get the 9 calibration parameters. (Maybe)
         lstm_out: torch.Tensor
             Tensor of size [batch_size, time_steps, n_parameters]. This tensor comes from the data-driven model,
@@ -79,10 +78,8 @@ class dCFE(BaseConceptualModel):
         # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
 
-
         # initialize structures to store the information
         states, out = self._initialize_information(conceptual_inputs=x_conceptual)
-        
         
         # This contains traits specific to the basin. Cgw is removed from this section for better gradient tracking
         # and gw_storage removed since it was not used in the code. 
@@ -771,6 +768,7 @@ class dCFE(BaseConceptualModel):
             vol['out_nash'] = vol['out_nash'] + flux_nash_lateral_runoff_m
             
             ### add_up_total_flux_discharge
+            #flux_Qout_m = flux_nash_lateral_runoff_m
             flux_Qout_m = flux_giuh_runoff_m + flux_nash_lateral_runoff_m  + flux_from_deep_gw_to_chan_m
             #flux_Qout_m = parameters['Cgw'][:,j] + parameters['satdk'][:,j]
             

@@ -1,7 +1,7 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: testdCFEpet_run
+experiment_name: testdCFEpetWarm10_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -68,7 +68,7 @@ output_dropout: 0.4
 optimizer: Adam
 
 # specify loss [MSE, NSE, RMSE]
-loss: NSE
+loss: MSE
 
 # specify learning rates to use starting at specific epochs (0 is the initial learning rate)
 learning_rate:
@@ -142,16 +142,19 @@ dynamic_conceptual_inputs:
   - temperature
   - shortwave_radiation
 
-#custom_normalization:
-#  QObs_CAMELS(mm/h):
-#    centering: None
-#    scaling: None
-#  total_precipitation_copy1:
-#    centering: None
-#    scaling: None
-#  potential_evaporation_copy1:
-#    centering: None
-#    scaling: None
+custom_normalization:
+  QObs_CAMELS(mm/h):
+    centering: None
+    scaling: None
+  total_precipitation:
+    centering: None
+    scaling: None
+  temperature:
+    centering: None
+    scaling: None
+  shortwave_radiation:
+    centering: None
+    scaling: None
 
 # which columns to use as target
 target_variables:
