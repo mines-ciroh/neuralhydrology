@@ -1,7 +1,7 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: testdCFEpetWarm10_run
+experiment_name: testdCFEpetWarm100_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
