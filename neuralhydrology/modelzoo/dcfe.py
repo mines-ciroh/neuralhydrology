@@ -52,7 +52,7 @@ class dCFE(BaseConceptualModel):
         ----------
         x_conceptual: torch.Tensor
             Tensor of size [batch_size, time_steps, n_inputs]. The batch_size is associated with a certain basin and a
-            certain prediction period. The time_steps refer to the number of time steps (e.g. days) that our conceptual
+            certain prediction period. The time_steps refer to the number of time steps (e.g. hours) that our conceptual
             model is going to be run for. The n_inputs is the number of forcing inputs. 
             This will be used in the NN part only to get the 9 calibration parameters. (Maybe)
         lstm_out: torch.Tensor
@@ -153,7 +153,7 @@ class dCFE(BaseConceptualModel):
             'coeff_secondary': 0,
             'exponent_secondary': 1,
         }
-        gw_reservoir['storage_m'] = gw_reservoir['storage_max_m'].clone() * 0.01
+        gw_reservoir['storage_m'] = gw_reservoir['storage_max_m'].clone() * 0.5 #0.5 was sweet spot before
         # volstart = volstart.add(gw_reservoir["storage_m"]) not sure what this does
         vol_in_gw_start = gw_reservoir["storage_m"]
         #^^^for ODE part
@@ -187,7 +187,7 @@ class dCFE(BaseConceptualModel):
             'exponent_secondary': 1.0,  # Controls lateral flow, FIXED to 1 based on the Fred Ogden's document
             'storage_threshold_secondary_m': lateral_flow_threshold_storage_m, ## but this is the same as field_capacity_storage_threshold_m??
         }
-        soil_reservoir['storage_m'] = soil_reservoir['storage_max_m'].clone() * 0.6 #0.4476
+        soil_reservoir['storage_m'] = soil_reservoir['storage_max_m'].clone() * 0.6 #factor was 0.6 before
         # volstart = volstart.add(soil_reservoir['storage_m'])
         vol_soil_start = soil_reservoir['storage_m'] # not used
         
@@ -388,7 +388,46 @@ class dCFE(BaseConceptualModel):
             # maybe it makes more sense to say one scheme for all basins
             if partition_scheme == "Schaake":
                 # copied from cfe.py
-                # original i
+                # if (timestep_rainfall_m > 0){
+                #   if(soil_reservoir_storage_deficit_m < 0){
+                #       infilt_excess_m = timestep_rainfall_m
+                #       infilt_depth_m = 0}
+                #   else{ 
+                #       Schaake Eq2, Px = timestep_rainfall_m, infilt_depth_m = (Px*(Ic/(Px+Ic)))
+                #       if (timestep_rainfall_m - infilt_depth_m > 0){
+                #           infilt_excess_m = timestep_rainfall_m - infilt_depth_m
+                #        }
+                #       else{infilt_excess_m = 0, infilt_depth_m = timestep_rainfall_m - infilt_excess_m}
+                # else{ infilt_excess_m = 0, infilt_depth_m = 0}
+                # assume factor = 1, ice_frac_Schaake not > 1e-2 (skip frozen soil module)
+                # infilt_depth_m = factor * infilt_depth_m
+                # infilt_excess_m = timestep_rainfall_m - infilt_depth_m
+                
+                soil_noDeficit_mask = (soil_reservoir_storage_deficit_m < 0) # mark ones w/o deficit
+                
+                soil_noDeficit_rain_mask = (rainfall_mask & soil_noDeficit_mask)
+                soil_deficit_rain_mask =  (rainfall_mask & ~soil_noDeficit_mask)
+                
+                if torch.any(rainfall_mask):
+                    # For soil_reservoir_storage_deficit_m < 0, excess = rain and depth = 0
+                    surface_runoff_depth_m[soil_noDeficit_rain_mask] = timestep_rainfall_input_m[soil_noDeficit_rain_mask]
+                    # Did not put in infiltration_depth_m as they are 0 in this case
+                    
+                    # For soil_reservoir_storage_deficit_m >= 0
+                    Schaake_parenthetical_term = (1 - torch.exp(- Schaake_adjusted_magic_constant_by_soil_type[:,j] * timestep_d))
+                    Ic = soil_reservoir_storage_deficit_m * Schaake_parenthetical_term
+                    Px = timestep_rainfall_input_m
+                    infiltration_depth_m[soil_deficit_rain_mask] = (Px*(Ic/(Px + Ic)))[soil_deficit_rain_mask]
+
+                    # From vector above, make another condition
+                    soil_excess_mask = (timestep_rainfall_input_m - infiltration_depth_m > 0) # mask for if rainfall is more than infilt depth
+                    combined_soil_excess_mask = (soil_deficit_rain_mask & soil_excess_mask) # mask for above chunk + excess rain
+                    combined_soil_noExcess_mask = (soil_deficit_rain_mask & ~soil_excess_mask) # mask for above chunk + no excess rain
+                    surface_runoff_depth_m[combined_soil_excess_mask] = (timestep_rainfall_input_m - infiltration_depth_m)[combined_soil_excess_mask]
+                    # not written else surface_runoff_depth_m = 0, since initialzied at 0
+                    infiltration_depth_m[combined_soil_noExcess_mask] = (timestep_rainfall_input_m - surface_runoff_depth_m)[combined_soil_noExcess_mask]
+                # not writtien, if no rainfall, surface_runoff_depth_m = 0 and infiltration_depth_m = 0 since initialized at 0
+                
                 """
                 This subtroutine takes water_input_depth_m and partitions it into surface_runoff_depth_m and
                 infiltration_depth_m using the scheme from Schaake et al. 1996.
@@ -404,7 +443,7 @@ class dCFE(BaseConceptualModel):
                 outputs:
                 surface_runoff_depth_m      amount of water partitioned to surface water this time step [m]
                 infiltration_depth_m
-                """
+                
                 rainfall = timestep_rainfall_input_m[rainfall_mask] # this is rainfall, here it is adjusted from ET before..
                 deficit = soil_reservoir_storage_deficit_m[rainfall_mask]
                 magic_const = Schaake_adjusted_magic_constant_by_soil_type[rainfall_mask,j]
@@ -424,7 +463,7 @@ class dCFE(BaseConceptualModel):
 
                 surface_runoff_depth_m[rainfall_mask] = runoff
                 infiltration_depth_m[rainfall_mask] = infilt
-                
+                """
                 
             elif partition_scheme == "Xinanjiang":
                 """
@@ -607,7 +646,9 @@ class dCFE(BaseConceptualModel):
                 # Adjusting the surface runoff and infiltration depths for the specific basins
                 surface_runoff_depth_m[excess_infil_mask] = surface_runoff_depth_m[excess_infil_mask] + diff
                 infiltration_depth_m[excess_infil_mask] = infiltration_depth_m[excess_infil_mask] - diff
-
+                
+                # This was missing from original implementation, added by Ziyu 10/18/24 from c code
+                soil_reservoir["storage_m"][excess_infil_mask] = soil_reservoir["storage_max_m"][excess_infil_mask]
                 # Setting the soil reservoir storage deficit to zero for the specific basins
                 soil_reservoir_storage_deficit_m[excess_infil_mask] = 0.0
             
@@ -763,6 +804,7 @@ class dCFE(BaseConceptualModel):
             runoff_queue_m_per_timestep[:, :-1] = runoff_queue_m_per_timestep[:, :-1] + (
             basinCharacteristics['giuh_ordinates'] * surface_runoff_depth_m.expand(N, -1).T
             )
+            
             # Take the top one in the runoff queue as runoff to channel
             flux_giuh_runoff_m = runoff_queue_m_per_timestep[:, 0].clone()
 
@@ -808,7 +850,7 @@ class dCFE(BaseConceptualModel):
             vol['out_nash'] = vol['out_nash'] + flux_nash_lateral_runoff_m
             
             ### add_up_total_flux_discharge
-            #flux_Qout_m = flux_nash_lateral_runoff_m
+            #flux_Qout_m = flux_giuh_runoff_m + surface_runoff_depth_m
             flux_Qout_m = flux_giuh_runoff_m + flux_nash_lateral_runoff_m  + flux_from_deep_gw_to_chan_m
             #flux_Qout_m = parameters['Cgw'][:,j] + parameters['satdk'][:,j]
             
