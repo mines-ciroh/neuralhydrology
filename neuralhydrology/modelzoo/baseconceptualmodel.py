@@ -19,7 +19,6 @@ class BaseConceptualModel(nn.Module):
 
     def __init__(self, cfg: Config):
         super(BaseConceptualModel, self).__init__()
-        self.cfg = cfg
         # Check if the dynamic_conceptual_inputs and the target_variables are in the custom normalization. This is
         # necessary as conceptual models are mass conservative.
         if any(item not in cfg.custom_normalization for item in cfg.dynamic_conceptual_inputs + cfg.target_variables):
@@ -50,7 +49,7 @@ class BaseConceptualModel(nn.Module):
 
         return dynamic_parameters
 
-    def _initialize_information(self, conceptual_inputs: torch.Tensor) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
+    def _initialize_information(self, conceptual_inputs: torch.Tensor, lstm_out: torch.Tensor) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         """Initialize the structures to store the time evolution of the internal states and the outflow of the conceptual
         model
 
@@ -58,7 +57,9 @@ class BaseConceptualModel(nn.Module):
         ----------
         conceptual_inputs: torch.Tensor
             Inputs of the conceptual model (dynamic forcings)
-
+        lstm_out: torch.Tensor
+            Tensor of size [batch_size, time_steps, n_param] that will be used for dCFE to make 
+            the correct output dimension
         Returns
         -------
         Tuple[Dict[str, torch.Tensor], torch.Tensor]
@@ -73,11 +74,15 @@ class BaseConceptualModel(nn.Module):
         for name, value in self.initial_states.items():
             states[name] = torch.zeros((conceptual_inputs.shape[0], conceptual_inputs.shape[1]), dtype=torch.float32,
                                        device=conceptual_inputs.device)
-
+            
         # initialize vectors to store the evolution of the outputs
-        out = torch.zeros((conceptual_inputs.shape[0], conceptual_inputs.shape[1], len(self.cfg.target_variables)),
-                          dtype=torch.float32, device=conceptual_inputs.device)
-
+        if self.cfg.conceptual_model.lower() == 'dcfe':
+            out = torch.zeros((conceptual_inputs.shape[0], lstm_out.shape[1], len(self.cfg.target_variables)),
+                              dtype=torch.float32, device=conceptual_inputs.device)
+        else:
+            out = torch.zeros((conceptual_inputs.shape[0], conceptual_inputs.shape[1], len(self.cfg.target_variables)),
+                              dtype=torch.float32, device=conceptual_inputs.device)
+            
         return states, out
 
 

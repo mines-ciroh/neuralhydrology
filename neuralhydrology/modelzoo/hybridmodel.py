@@ -6,7 +6,7 @@ from neuralhydrology.modelzoo.basemodel import BaseModel
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.modelzoo.inputlayer import InputLayer
 from neuralhydrology.modelzoo.shm import SHM
-from neuralhydrology.modelzoo.dcfe import dCFE
+from neuralhydrology.modelzoo.dcfeCopy import dCFE
 
 
 class HybridModel(BaseModel):
@@ -23,7 +23,8 @@ class HybridModel(BaseModel):
 
     def __init__(self, cfg: Config):
         super(HybridModel, self).__init__(cfg=cfg)
-
+        self.cfg = cfg
+        
         self.embedding_net = InputLayer(cfg)
 
         self.lstm = nn.LSTM(input_size=self.embedding_net.output_size, hidden_size=cfg.hidden_size)
@@ -61,9 +62,12 @@ class HybridModel(BaseModel):
         # map lstm outputs to the dimension of the conceptual model´s parameters
         lstm_out = lstm_output[:, self.cfg.warmup_period:, :]
         lstm_out = self.linear(lstm_out)
-
+        
         # get predictions
-        pred = self.conceptual_model(x_conceptual=data['x_d_c'][:, self.cfg.warmup_period:, :], lstm_out=lstm_out)
+        if self.cfg.conceptual_model.lower() == 'dcfe': # for dCFE, we want all the forcings
+            pred = self.conceptual_model(x_conceptual=data['x_d_c'], lstm_out=lstm_out)
+        else:
+            pred = self.conceptual_model(x_conceptual=data['x_d_c'][:, self.cfg.warmup_period:, :], lstm_out=lstm_out)
 
         return pred
 

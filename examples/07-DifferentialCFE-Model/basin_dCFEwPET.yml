@@ -2,7 +2,7 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: testdCFEpetSeq1_run
+experiment_name: testdCFEpet2wk_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -81,7 +81,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 5
+epochs: 3
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -92,9 +92,9 @@ predict_last_n: 1
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 336
+seq_length: 8761
 
-warmup_period: 0
+warmup_period: 8760
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8
