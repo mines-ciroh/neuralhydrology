@@ -215,7 +215,7 @@ class dCFE(BaseConceptualModel):
         
         # Spin up for warm_up amount of time, do not track gradient
         with torch.no_grad():
-            for j in range(x_conceptual.shape[1]):
+            for j in range(0, (x_conceptual.shape[1] - lstm_out.shape[1] - 1)):
                 # use first pair of predicted parameters for spin up
                 satdk_timestep = parameters['satdk'][:, 0]
                 cgw_timestep = parameters['Cgw'][:, 0]
