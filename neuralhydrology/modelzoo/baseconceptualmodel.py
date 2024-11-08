@@ -1,10 +1,11 @@
 from typing import Dict, Union, Tuple
 import torch
 import torch.nn as nn
+from abc import ABC, abstractmethod
 from neuralhydrology.utils.config import Config
 
 
-class BaseConceptualModel(nn.Module):
+class BaseConceptualModel(nn.Module, ABC):
     """Abstract base model class, don't use this class for model training.
 
     The purpose is to have some common operations that all conceptual models will need. Use subclasses of this class
@@ -24,8 +25,9 @@ class BaseConceptualModel(nn.Module):
         if any(item not in cfg.custom_normalization for item in cfg.dynamic_conceptual_inputs + cfg.target_variables):
             raise RuntimeError("dynamic_conceptual_inputs and target_variables require custom_normalization")
 
+    @abstractmethod
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
-        raise NotImplementedError
+        pass
 
     def _get_dynamic_parameters_conceptual(self, lstm_out: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Map the output of the data-driven part of the predefined ranges of the conceptual model that is being used.
