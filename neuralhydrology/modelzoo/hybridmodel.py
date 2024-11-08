@@ -6,7 +6,7 @@ from neuralhydrology.modelzoo.basemodel import BaseModel
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.modelzoo.inputlayer import InputLayer
 from neuralhydrology.modelzoo.shm import SHM
-from neuralhydrology.modelzoo.dcfeCopy import dCFE
+from neuralhydrology.modelzoo.dcfe import dCFE
 
 
 class HybridModel(BaseModel):
