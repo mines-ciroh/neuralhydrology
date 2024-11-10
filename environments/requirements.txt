@@ -1,0 +1,26 @@
+bokeh
+h5py
+jupyter
+matplotlib
+netcdf4
+numba
+pandas
+pytest
+pytest-cov
+torch
+ruamel.yaml
+scipy
+sphinx
+tqdm
+xarray
+yapf
+tensorboard
+sphinx-rtd-theme
+nbsphinx
+nbsphinx-link
+
+# To install the version of neuralhydrology contained in this folder,
+# navigate to the appropriate folder in terminal and type 
+# `pip install -e` .
+# I've already done this, just adding a note here for clarity 
+# DM 11/08.
