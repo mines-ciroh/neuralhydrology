@@ -89,14 +89,14 @@ class dCFE(BaseConceptualModel):
             for j in range(0, (x_conceptual.shape[1] - lstm_out.shape[1] - 1)):
                 # run the CFE model for the time step w/ first pair of params
                 self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
-                                  satdk_timestep = parameters['satdk'][:, 0],
-                                  cgw_timestep = parameters['Cgw'][:, 0])
+                                    satdk_timestep = parameters['satdk'][:, 0],
+                                    cgw_timestep = parameters['Cgw'][:, 0])
                 
                 # store resulting states, right now this doesn't do anything
                 states['gw_reservoir_storage_m'][:,j] = self.gw_reservoir['storage_m']
                 states['soil_reservoir_storage_m'][:,j] = self.soil_reservoir['storage_m']
                 states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
-        
+            
         # Run model for prediction for each parameters
         for k in range(lstm_out.shape[1]):
             # run CFE for that time step, w/ time-varying params
@@ -154,10 +154,12 @@ class dCFE(BaseConceptualModel):
         
         self.calculate_evaporation_from_rainfall()
         
+        # TODO: if classic scheme then
         self.calculate_evaporation_from_soil()
             
         ####____________Infiltration partitioning__________####
         
+        # TODO: double check this in cfe.py in dCFE project src
         if self.schemes['partition'] == "Schaake":
             self.run_Schaake_subroutine()
         elif self.schemes['partition'] == "Xinanjiang":
@@ -167,6 +169,10 @@ class dCFE(BaseConceptualModel):
                 "Problem: must specify one of Schaake or Xinanjiang partitioning scheme."
             )
             print("Program terminating.:( \n")
+        
+        """TODO:
+        Ask Andy about c code lines 166-179, where is flux_prec_m from when not previously defined?
+        """
         
         self.adjust_and_track_runoff_infiltration()
         
@@ -188,11 +194,13 @@ class dCFE(BaseConceptualModel):
         self.adjust_from_soil_outflux()
         
         ####_______________groundwater reservoir________________####
-        
+        # TODO: double check this with cfe.py in dCFE as well
         self.percolation_and_lateral_flow()
         
         self.calculate_gw_reservoir_flux(x_conceptual_timestep)
         
+        # TODO: in c code, it is either GIUH or nash cascade. See lines 239 - 260.
+        # I believe we GIUH for surface routing and then nash cascade for subsurface
         ####________________surface runoff routing______________####
         
         self.calculate_convolutional_integral_for_GIUH()
@@ -600,6 +608,7 @@ class dCFE(BaseConceptualModel):
 
     def run_Xinanjiang_subroutine(self, x_conceptual_timestep):
         """
+        TODO: Need to verify with c code
         Calculate infiltration & runoff based on the Xinanjiang scheme. Modifies:
         self.surface_runoff_depth_m
         self.infiltration_depth_m
@@ -764,7 +773,7 @@ class dCFE(BaseConceptualModel):
         ##### infiltration_depth_m has been initialized at 2 different spots, need to decide where to put them. 
     
     def adjust_and_track_runoff_infiltration(self):
-        """
+        """ Modified by Ziyu
         This modifies the following based on either soil subroutine:
         self.surface_runoff_depth_m
         self.infiltration_depth_m
@@ -790,10 +799,10 @@ class dCFE(BaseConceptualModel):
             diff = (self.infiltration_depth_m - self.soil_reservoir_storage_deficit_m)[excess_infil_mask]
             # Adjusting the surface runoff and infiltration depths for the specific basins
             self.surface_runoff_depth_m[excess_infil_mask] = self.surface_runoff_depth_m[excess_infil_mask] + diff
-            self.infiltration_depth_m[excess_infil_mask] = self.infiltration_depth_m[excess_infil_mask] - diff
+            self.infiltration_depth_m[excess_infil_mask] = self.soil_reservoir_storage_deficit_m[excess_infil_mask]
             
-            # This was missing from original implementation, added by Ziyu 10/18/24 from c code
-            self.soil_reservoir["storage_m"][excess_infil_mask] = self.soil_reservoir["storage_max_m"][excess_infil_mask].clone()
+            # This was missing from original implementation, added by Ziyu 11/11/24 from c code line 142
+            self.soil_reservoir["storage_m"][excess_infil_mask] = self.soil_reservoir["storage_max_m"][excess_infil_mask]
             # Setting the soil reservoir storage deficit to zero for the specific basins
             self.soil_reservoir_storage_deficit_m[excess_infil_mask] = 0.0
         
@@ -804,14 +813,16 @@ class dCFE(BaseConceptualModel):
         self.vol['to_soil'] = self.vol['to_soil'] + self.infiltration_depth_m
     
     def run_classic_soil_moisture_subroutine(self):
-        """
-        Soil moisture scheme using the classic (difference) method. It modifies/creates:
+        """ Modified by Ziyu
+        Soil moisture scheme using the classic (difference) method. 
+        Lines 317 of original author code, equivalent to conceptual_reservoir_flux_calc. It modifies/creates:
         self.soil_reservoir["storage_m"]
         self.primary_flux_m
         self.secondary_flux_m
         """
+        # Assumes we don't have a single outlet exponential gw storage...
         # Add infiltration flux and calculate the reservoir flux
-        # this is adjusted for ET already
+        # this is adjusted for ET already (not sure where this is from)
         self.soil_reservoir["storage_m"] = self.soil_reservoir["storage_m"] + self.infiltration_depth_m
         
         ## do soil_conceptual_reservoir_flux_calc
@@ -841,6 +852,8 @@ class dCFE(BaseConceptualModel):
                 secondary_flux,
                 storage_above_threshold_secondary - self.primary_flux_m)[secondary_flux_mask]
 
+# TODO: Check this below. Consider moving soil reservoir storage - flux_perc_m, etc 
+# to percolation_and_lateral_flow(self)
     def adjust_from_soil_outflux(self):
         """
         modifies
@@ -851,6 +864,7 @@ class dCFE(BaseConceptualModel):
         self.flux_perc_m = self.primary_flux_m  # percolation_flux
         self.flux_lat_m = self.secondary_flux_m # lateral_flux
         
+        ## Below is from 208-209
         # If the soil moisture scheme is classic, take out the outflux from soil moisture storage
         # If ODE, outfluxes are already subtracted from the soil moisture storage
         if self.schemes['soil'] == "classic":
@@ -863,8 +877,11 @@ class dCFE(BaseConceptualModel):
             ) # we can come back and implement this later
             print("Program terminating.:( \n")
 
+# TODO: Check this below. Instead of storage = storage_max, consider doing 
+# whole vector storage = storage + flux_perc_m
     def percolation_and_lateral_flow(self):
         """
+        Corresponds to lines 194 - 214 in cfe.c
         Calculates soil gw flux from percolation & lateral flux and modifies:
         self.surface_runoff_depth_m
         self.flux_perc_m
@@ -887,14 +904,15 @@ class dCFE(BaseConceptualModel):
             diff = (self.flux_perc_m - gw_reservoir_storage_deficit_m)[overflow_mask].clone()
             # there's another variable previously named as diff, maybe we should choose a better name?
 
-            # Overflow goes to surface runoff
+            # Overflow goes to surface runoff ## not sure where this is from.
             self.surface_runoff_depth_m[overflow_mask] = self.surface_runoff_depth_m[overflow_mask] + diff
 
             # Reduce the infiltration (maximum possible flux_perc_m is equal to gw_reservoir_storage_deficit_m)
             self.flux_perc_m[overflow_mask] = gw_reservoir_storage_deficit_m[overflow_mask].clone()
 
-            # Saturate the Groundwater storage
+            # Saturate the Groundwater storage # I believe storage + flux_prec_m saturated = storage max
             self.gw_reservoir["storage_m"][overflow_mask] = self.gw_reservoir["storage_max_m"][overflow_mask].clone()
+            #^^^^ this is redundant, we could just do storage + flux_perc for whole vector
             gw_reservoir_storage_deficit_m[overflow_mask] = 0.0
 
             # Track volume
@@ -912,9 +930,12 @@ class dCFE(BaseConceptualModel):
         self.vol['soil_to_gw'] = self.vol['soil_to_gw'] + self.flux_perc_m
         self.vol['soil_to_lat_flow'] = self.vol['soil_to_lat_flow'] + self.flux_lat_m
         self.vol['out'] = self.vol['out'] + self.flux_lat_m
-        
+
+# TODO: Should be same type calculation as run_classic_soil_moisture_scheme
+# Maybe consider reformatting for consistency?
     def calculate_gw_reservoir_flux(self, x_conceptual_timestep: torch.Tensor):
         """
+        corresponds to lines 214 - 224
         Calculates flux from conceptual grownd water reservoir, and modifies:
         self.gw_reservoir["storage_m"]
         self.vol['from_gw']
@@ -939,10 +960,11 @@ class dCFE(BaseConceptualModel):
             self.basinCharacteristics['Cgw'] * flux_exponential,
             self.gw_reservoir["storage_m"]
             )
-        self.flux_from_deep_gw_to_chan_m = self.primary_flux_from_gw_m + self.secondary_flux_from_gw_m
+        self.flux_from_deep_gw_to_chan_m = self.primary_flux_from_gw_m + self.secondary_flux_from_gw_m # there's no 2nd flux since exponential
         
         ### track_volume_from_gw
         self.gw_reservoir["storage_m"] = self.gw_reservoir["storage_m"] - self.flux_from_deep_gw_to_chan_m.clone()
+        # missing adjustments to flux_from_deep_gw_to_chan_m, maybe not needed but mass balance would be incorrect
         # Mass balance
         self.vol['from_gw'] = self.vol['from_gw'] + self.flux_from_deep_gw_to_chan_m
         self.vol['out'] = self.vol['out'] + self.flux_from_deep_gw_to_chan_m
