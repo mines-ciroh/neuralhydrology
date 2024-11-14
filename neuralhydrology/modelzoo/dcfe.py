@@ -154,12 +154,11 @@ class dCFE(BaseConceptualModel):
         
         self.calculate_evaporation_from_rainfall()
         
-        # TODO: if classic scheme then
+        # TODO: if classic scheme then evaporation from soil:
         self.calculate_evaporation_from_soil()
             
         ####____________Infiltration partitioning__________####
         
-        # TODO: double check this in cfe.py in dCFE project src
         if self.schemes['partition'] == "Schaake":
             self.run_Schaake_subroutine()
         elif self.schemes['partition'] == "Xinanjiang":
@@ -194,19 +193,18 @@ class dCFE(BaseConceptualModel):
         self.adjust_from_soil_outflux()
         
         ####_______________groundwater reservoir________________####
-        # TODO: double check this with cfe.py in dCFE as well
+  
         self.percolation_and_lateral_flow()
         
         self.calculate_gw_reservoir_flux(x_conceptual_timestep)
         
         # TODO: in c code, it is either GIUH or nash cascade. See lines 239 - 260.
-        # I believe we GIUH for surface routing and then nash cascade for subsurface
         ####________________surface runoff routing______________####
         
         self.calculate_convolutional_integral_for_GIUH()
         
         ####________________lateral flow routing________________####
-        
+        # subsurface scheme:
         self.run_nash_cascade()
         
         # calculate total runoff in meters
@@ -811,7 +809,8 @@ class dCFE(BaseConceptualModel):
         self.vol['partition_runoff'] = self.vol['partition_runoff'] + self.surface_runoff_depth_m
         self.vol['partition_infilt'] = self.vol['partition_infilt'] + self.infiltration_depth_m
         self.vol['to_soil'] = self.vol['to_soil'] + self.infiltration_depth_m
-    
+
+# TODO: Missing flux_perc_m to soil_reservoir_storage_deficit_m on c code 116-179
     def run_classic_soil_moisture_subroutine(self):
         """ Modified by Ziyu
         Soil moisture scheme using the classic (difference) method. 
