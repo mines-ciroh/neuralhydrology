@@ -110,7 +110,7 @@ class dCFE(BaseConceptualModel):
             states['first_nash_storage'][:,(j + 1 + k)] = self.basinCharacteristics['nash_storage'][:,0]
             
             # store runoff for back-prop
-            out[:,k,0] = self.flux_Qout_m*1000 
+            out[:,k,0] = self.flux_Qout_m*1000
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 
@@ -329,6 +329,8 @@ class dCFE(BaseConceptualModel):
             'gw_start': self.gw_reservoir["storage_m"],
             'soil_start': self.soil_reservoir['storage_m']
         }
+        
+        self.flux_perc_m = torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
     
     def initialize_flux_timestep(self, x_conceptual_timestep: torch.Tensor):
         # reset fluxes that can store information at every time-step. This will be #basin x 
@@ -810,7 +812,7 @@ class dCFE(BaseConceptualModel):
         self.vol['partition_infilt'] = self.vol['partition_infilt'] + self.infiltration_depth_m
         self.vol['to_soil'] = self.vol['to_soil'] + self.infiltration_depth_m
 
-# TODO: Missing flux_perc_m to soil_reservoir_storage_deficit_m on c code 116-179
+
     def run_classic_soil_moisture_subroutine(self):
         """ Modified by Ziyu
         Soil moisture scheme using the classic (difference) method. 
@@ -819,6 +821,16 @@ class dCFE(BaseConceptualModel):
         self.primary_flux_m
         self.secondary_flux_m
         """
+        # Added on 11/20/2024
+        mask_perc_soil = self.flux_perc_m > self.soil_reservoir_storage_deficit_m
+        if torch.any(mask_perc_soil):
+            diff_perc_soil = self.flux_perc_m[mask_perc_soil] - self.soil_reservoir_storage_deficit_m[mask_perc_soil]
+            self.infiltration_depth_m[mask_perc_soil] = self.soil_reservoir_storage_deficit_m[mask_perc_soil]
+        #    # not added: lines 170 & 171 send flow back to giuh in self.vol & correct over-prediction of infilt
+            self.surface_runoff_depth_m[mask_perc_soil] = self.surface_runoff_depth_m[mask_perc_soil] + diff_perc_soil[mask_perc_soil]
+            self.soil_reservoir_storage_deficit_m[mask_perc_soil] = 0
+        
+        
         # Assumes we don't have a single outlet exponential gw storage...
         # Add infiltration flux and calculate the reservoir flux
         # this is adjusted for ET already (not sure where this is from)
