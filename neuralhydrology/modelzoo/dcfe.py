@@ -274,7 +274,7 @@ class dCFE(BaseConceptualModel):
             'coeff_secondary': 0,
             'exponent_secondary': 1,
         }
-        self.gw_reservoir['storage_m'] = self.gw_reservoir['storage_max_m'].clone() * 0.9 #0.5 was sweet spot before
+        self.gw_reservoir['storage_m'] = self.gw_reservoir['storage_max_m'].clone() * 0.5 #0.5 was sweet spot before
         
         ## Soil Reservoir Configuration
         # local values to be used in setting up soil reservoir
@@ -304,7 +304,7 @@ class dCFE(BaseConceptualModel):
             'exponent_secondary': 1.0,  # Controls lateral flow, FIXED to 1 based on the Fred Ogden's document
             'storage_threshold_secondary_m': self.lateral_flow_threshold_storage_m, ## but this is the same as field_capacity_storage_threshold_m??
         }
-        self.soil_reservoir['storage_m'] = self.soil_reservoir['storage_max_m'].clone() * 0.9 #factor was 0.6 before
+        self.soil_reservoir['storage_m'] = self.soil_reservoir['storage_max_m'].clone() * 0.5 #factor was 0.6 before
         
         self.N = self.basinCharacteristics['giuh_ordinates'].shape[0] # giuh_ordinates are rows x 1 column for each basin, used in routing
         self.runoff_queue_m_per_timestep = torch.ones((x_conceptual.shape[0], self.N + 1), dtype=torch.float32, device=x_conceptual.device) # nash cascade
