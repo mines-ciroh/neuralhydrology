@@ -23,7 +23,7 @@ device: cpu
 # --- Validation configuration ---------------------------------------------------------------------
 
 # specify after how many epochs to perform validation
-validate_every: 2
+validate_every: 4
 
 # specify how many random basins to use for validation
 validate_n_random_basins: 1
@@ -92,9 +92,9 @@ predict_last_n: 1
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 365 #365 #672 #336
+seq_length: 366 #365 #672 #336
 
-warmup_period: 10
+warmup_period: 365
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8

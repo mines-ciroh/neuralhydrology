@@ -424,12 +424,14 @@ class dCFE(BaseConceptualModel):
                 rainfall - actual_et_from_rain,  #  # If P > PET, part of P is consumed as AET
                 torch.zeros_like(rainfall),  # If P < PET, all P gets consumed as AET
                 )
+            
+            reduced_potential_et = pet - actual_et_from_rain
         
             # storing results back to the states
             self.actual_et_from_rain_m_per_timestep[rainfall_mask] = actual_et_from_rain
             # should the below be states????? They are not right now.
             self.timestep_rainfall_input_m[rainfall_mask] = reduced_rainfall # adjusting precip based on evaporation from rainfall
-            self.reduced_potential_et_m_per_timestep[rainfall_mask] = pet - actual_et_from_rain # adjusting pet based on evaporation from rainfall
+            self.reduced_potential_et_m_per_timestep[rainfall_mask] = reduced_potential_et # adjusting pet based on evaporation from rainfall
             
             ## And track_volume_from_rainfall (should the following be states as well???)
             self.vol['et_from_rain'] = self.vol['et_from_rain'] + self.actual_et_from_rain_m_per_timestep
@@ -449,42 +451,39 @@ class dCFE(BaseConceptualModel):
         self.actual_et_m_per_timestep
         """
         ### Calculate evaporation from soil ###
-        
-        # Create mask for soil storage > wilting point, if this is true then soil from et happens
-        soil_wilting_mask = self.soil_reservoir["storage_m"] > self.soil_reservoir["wilting_point_m"]
-        
-        if torch.any(soil_wilting_mask):
-            # Create surrogate variables
-            reduced_pet = self.reduced_potential_et_m_per_timestep[soil_wilting_mask]
-            storage_threshold_prim = self.soil_reservoir["storage_threshold_primary_m"][soil_wilting_mask]
-            actual_et_soil = self.actual_et_from_soil_m_per_timestep[soil_wilting_mask]
-            soil_storage = self.soil_reservoir["storage_m"][soil_wilting_mask]
-            wilting_point = self.soil_reservoir["wilting_point_m"][soil_wilting_mask]
+        if self.schemes['soil'] == "classic":
+            # Creating mask for elements where adjusted PET > 0
+            et_mask = (self.reduced_potential_et_m_per_timestep > 0) # adjusted PET
+            # Creating mask for elements where excess soil moisture > 0; soil sotrage > wilting point
+            excess_sm_for_ET_mask = (self.soil_reservoir["storage_m"] > self.soil_reservoir["wilting_point_m"])
+            # Creating mask for elements where soil storage >= soil storage_threshold_primary_m
+            excess_sm_primary_threshold = (self.soil_reservoir["storage_m"] >= self.soil_reservoir['storage_threshold_primary_m'])
+            # Creating mask for elements where soil storage < soil storage_threshold_primary_m
+            # deficit_sm_primary_threshold = ~excess_sm_for_ET_mask
             
-            if self.schemes['soil'] == "classic":
-                # Create mask for when reduced PET > 0
-                reduced_pet_mask = reduced_pet > 0
-                if torch.any(reduced_pet_mask):
-                    reduced_pet = reduced_pet[reduced_pet_mask]
-                    storage_threshold_prim = storage_threshold_prim[reduced_pet_mask]
-                    actual_et_soil = actual_et_soil[reduced_pet_mask]
-                    soil_storage = soil_storage[reduced_pet_mask]
-                    wilting_point = wilting_point[reduced_pet_mask]
-                    
-                    storage_threshold_mask = (soil_storage >= storage_threshold_prim)
-                    
-                    # for if soil_storage >= storage_threshold_prim
-                    actual_et_soil[storage_threshold_mask] = torch.min(reduced_pet[storage_threshold_mask], soil_storage[storage_threshold_mask])
-                    
-                    # for if soil_storage < storage_threshold_prim
-                    Budyko_numerator = (soil_storage[~storage_threshold_mask] - wilting_point[~storage_threshold_mask])
-                    Budyko_denominator = (storage_threshold_prim[~storage_threshold_mask] - wilting_point[~storage_threshold_mask])
-                    Budyko = Budyko_numerator/Budyko_denominator
-                    actual_et_soil[~storage_threshold_mask] = torch.min(Budyko * reduced_pet[~storage_threshold_mask], soil_storage[~storage_threshold_mask])
-                    
-                    # Store back to variabales 
-                    self.actual_et_from_soil_m_per_timestep[soil_wilting_mask][reduced_pet_mask] = actual_et_soil
-                    
+            # Combine both masks where PET > 0, and soil storage >= storage_threshold_primary
+            combined_excess_primary_mask = et_mask & excess_sm_primary_threshold 
+            # Combine both masks where PET > 0, and soil storage > wilting point, and soil storage < storage threshold primary
+            combined_excess_ET_and_deficit_primary_mask = et_mask & excess_sm_for_ET_mask & ~excess_sm_primary_threshold
+            # If the soil moisture storage is more than wilting point, and PET is not zero, calculate ET from soil
+            if torch.any(combined_excess_primary_mask): # if there's PET & storage >= threshold primary
+                self.actual_et_from_soil_m_per_timestep[combined_excess_primary_mask] = torch.where(
+                    self.reduced_potential_et_m_per_timestep[combined_excess_primary_mask] < self.soil_reservoir["storage_m"][combined_excess_primary_mask],
+                    self.reduced_potential_et_m_per_timestep[combined_excess_primary_mask],
+                    self.soil_reservoir["storage_m"][combined_excess_primary_mask]
+                ) 
+            # equivalent to min(reduced_potential_et_m_per_timestep[combined_excess_primary_mask], soil_reservoir["storage_m"])
+            if torch.any(combined_excess_ET_and_deficit_primary_mask): #check PET>0, storage>wilting, and storage < primary
+                Budyko_numerator = (self.soil_reservoir["storage_m"] - self.soil_reservoir["wilting_point_m"])[combined_excess_ET_and_deficit_primary_mask]
+                Budyko_denominator = (self.soil_reservoir["storage_threshold_primary_m"] - self.soil_reservoir["wilting_point_m"])[combined_excess_ET_and_deficit_primary_mask]
+                Budyko = Budyko_numerator/Budyko_denominator # calculate the constant
+                
+                self.actual_et_from_soil_m_per_timestep[combined_excess_ET_and_deficit_primary_mask] = torch.where(
+                    Budyko * self.reduced_potential_et_m_per_timestep[combined_excess_ET_and_deficit_primary_mask] < self.soil_reservoir["storage_m"][combined_excess_ET_and_deficit_primary_mask],
+                    Budyko * self.reduced_potential_et_m_per_timestep[combined_excess_ET_and_deficit_primary_mask],
+                    self.soil_reservoir["storage_m"][combined_excess_ET_and_deficit_primary_mask]
+                ) #equivalent to min(Budyko*PET, soil storage)
+            
             # adjust soil storage w/ ET from soil
             self.soil_reservoir["storage_m"] = self.soil_reservoir["storage_m"] - self.actual_et_from_soil_m_per_timestep
             # adjust PET w/ ET from soil
