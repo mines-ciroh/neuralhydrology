@@ -81,8 +81,8 @@ class BaseConceptualModel(nn.Module, ABC):
         if self.cfg.conceptual_model.lower() == 'dcfe':
             out = torch.zeros((conceptual_inputs.shape[0], lstm_out.shape[1], len(self.cfg.target_variables)),
                               dtype=torch.float32, device=conceptual_inputs.device)
-        else:
-            out = torch.zeros((conceptual_inputs.shape[0], conceptual_inputs.shape[1], len(self.cfg.target_variables)),
+        elif self.cfg.conceptual_model.lower() == 'shm':
+            out = torch.zeros((lstm_out.shape[0], conceptual_inputs.shape[1], len(self.cfg.target_variables)),
                               dtype=torch.float32, device=conceptual_inputs.device)
             
         return states, out

@@ -1,7 +1,7 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: testHybrid_run
+experiment_name: timingSHM627_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -22,7 +22,7 @@ device: cpu
 # --- Validation configuration ---------------------------------------------------------------------
 
 # specify after how many epochs to perform validation
-validate_every: 3
+validate_every: 2
 
 # specify how many random basins to use for validation
 validate_n_random_basins: 1
@@ -61,7 +61,7 @@ output_dropout: 0.4
 
 # --- Training configuration -----------------------------------------------------------------------
 # hybrid_model specific:
-warmup_period: 30
+warmup_period: 0
 
 # specify optimizer [Adam]
 optimizer: Adam
@@ -79,7 +79,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 4
+epochs: 5
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -90,7 +90,7 @@ predict_last_n: 1
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 365
+seq_length: 627
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8

@@ -24,6 +24,7 @@ class SHM(BaseConceptualModel):
     """
     def __init__(self, cfg: Config):
         super(SHM, self).__init__(cfg=cfg)
+        self.cfg = cfg
 
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
         """Perform a forward pass on the SHM model. In this forward pass, all elements of the batch are processed in  parallel
@@ -55,7 +56,7 @@ class SHM(BaseConceptualModel):
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
 
         # initialize structures to store the information
-        states, out = self._initialize_information(conceptual_inputs=x_conceptual)
+        states, out = self._initialize_information(conceptual_inputs=x_conceptual, lstm_out=lstm_out)
 
         # initialize constants
         zero = torch.tensor(0.0, dtype=torch.float32, device=x_conceptual.device)

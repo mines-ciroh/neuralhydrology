@@ -66,7 +66,7 @@ class HybridModel(BaseModel):
         # get predictions
         if self.cfg.conceptual_model.lower() == 'dcfe': # for dCFE, we want all the forcings
             pred = self.conceptual_model(x_conceptual=data['x_d_c'], lstm_out=lstm_out)
-        else:
+        elif self.cfg.conceptual_model.lower() == 'shm':
             pred = self.conceptual_model(x_conceptual=data['x_d_c'][:, self.cfg.warmup_period:, :], lstm_out=lstm_out)
 
         return pred
