@@ -20,7 +20,11 @@ class testCFE:
             x_conceptual[:, 1, :] = temperature @ 2m, (K)
             x_conceptual[:, 2, :] = shortwave radiation (W/m2)
         Returns:
-            torch.Tensor: a tensor of time_stepped output of runoff or other parameters in mm
+            Discharge (torch.Tensor): a tensor of time_stepped output of 
+            Discharge[:, 0] = runoff (mm)
+            Discharge[:, 1] = flux_giuh_runoff_m (m), or GIUH runoff
+            Discharge[:, 2] = flux_nash_lateral_runoff_m (m), or lateral flow
+            Discharge[:, 3] = flux_from_deep_gw_to_chan_m (m), or 
         """
         
         # initialize basin-specific constants
@@ -30,13 +34,16 @@ class testCFE:
         Cgw = 0.01*torch.tensor(1.0).repeat(x_conceptual.shape[0])  
         
         # empty vector to store output
-        Discharge = torch.tensor(0.0).repeat(x_conceptual.shape[2])
+        Discharge = torch.zeros(x_conceptual.shape[2], 5)
         
         for i in range(x_conceptual.shape[2]):
             timestep_forcing = x_conceptual[:, :, i]
             self.timestep_CFE(x_conceptual_timestep=timestep_forcing, satdk_timestep=satdk, cgw_timestep=Cgw)
-            Discharge[i] = self.flux_Qout_m[0]*1000
-        
+            Discharge[i, 0] = self.flux_Qout_m[0]*1000
+            Discharge[i, 1] = self.flux_giuh_runoff_m[0] 
+            Discharge[i, 2] = self.flux_nash_lateral_runoff_m[0]
+            Discharge[i, 3] = self.flux_from_deep_gw_to_chan_m[0]
+            Discharge[i, 4] = self.surface_runoff_depth_m[0]
         return Discharge
         
     
