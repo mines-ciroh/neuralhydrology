@@ -2,7 +2,7 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: testdCFEpetDaily_run
+experiment_name: TestdCFEpetDaily_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -92,7 +92,7 @@ predict_last_n: 1
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 366 #365 #672 #336
+seq_length: 366 #336
 
 warmup_period: 365
 
