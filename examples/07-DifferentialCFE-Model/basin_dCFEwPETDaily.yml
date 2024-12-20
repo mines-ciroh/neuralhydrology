@@ -2,12 +2,12 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: TestdCFEpetDaily_run
+experiment_name: TestdCFEpetDaily_runArid
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 1_basin.txt
-validation_basin_file: 1_basin.txt
-test_basin_file: 1_basin.txt
+train_basin_file: 1_basinArid.txt
+validation_basin_file: 1_basinArid.txt
+test_basin_file: 1_basinArid.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
@@ -73,15 +73,15 @@ loss: MSE
 
 # specify learning rates to use starting at specific epochs (0 is the initial learning rate)
 learning_rate:
-  0: 1e-2
-  30: 5e-3
+  0: 2e-2
+  20: 2e-3
   40: 1e-3
 
 # Mini-batch size
 batch_size: 256
 
 # Number of training epochs
-epochs: 20
+epochs: 30
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -94,7 +94,7 @@ predict_last_n: 1
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
 seq_length: 366 #336
 
-warmup_period: 365
+warmup_period: 365 #365
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8

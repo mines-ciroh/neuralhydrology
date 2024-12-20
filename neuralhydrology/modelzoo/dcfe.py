@@ -110,7 +110,7 @@ class dCFE(BaseConceptualModel):
             states['first_nash_storage'][:,(j + 1 + k)] = self.basinCharacteristics['nash_storage'][:,0]
             
             # store runoff for back-prop
-            out[:,k,0] = self.flux_Qout_m*1000
+            out[:,k,0] = self.flux_Qout_m * self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 
@@ -208,14 +208,14 @@ class dCFE(BaseConceptualModel):
         self.run_nash_cascade()
         
         # calculate total runoff in meters
-        #self.flux_Qout_m = self.flux_giuh_runoff_m + self.flux_nash_lateral_runoff_m  + self.flux_from_deep_gw_to_chan_m
-        self.flux_Qout_m = self.gw_reservoir["storage_m"]
+        self.flux_Qout_m = self.flux_giuh_runoff_m + self.flux_nash_lateral_runoff_m  + self.flux_from_deep_gw_to_chan_m
+        #self.flux_Qout_m = self.gw_reservoir["storage_m"]
         
         
     def initialize_basin_constants(self, x_conceptual: torch.Tensor):
          # ________some other constants_______
         # time-related constants
-        self.time_step_size = 3600*24 # num of [seconds] per hour, we go by 3600s each time step
+        self.time_step_size = 3600*24 # num of [seconds] , we go by 3600s each time step for hourly
         self.timestep_h = self.time_step_size/3600 # time step in [hours]
         self.timestep_d = self.timestep_h/24 # time step in [days]
         # physics constants
@@ -276,7 +276,7 @@ class dCFE(BaseConceptualModel):
             'coeff_secondary': 0,
             'exponent_secondary': 1,
         }
-        self.gw_reservoir['storage_m'] = self.gw_reservoir['storage_max_m'].clone() * 0.9 #0.5 was sweet spot before
+        self.gw_reservoir['storage_m'] = self.gw_reservoir['storage_max_m'].clone() * 0.5 #0.5 was sweet spot before
         
         ## Soil Reservoir Configuration
         # local values to be used in setting up soil reservoir
@@ -306,7 +306,7 @@ class dCFE(BaseConceptualModel):
             'exponent_secondary': 1.0,  # Controls lateral flow, FIXED to 1 based on the Fred Ogden's document
             'storage_threshold_secondary_m': self.lateral_flow_threshold_storage_m, ## but this is the same as field_capacity_storage_threshold_m??
         }
-        self.soil_reservoir['storage_m'] = self.soil_reservoir['storage_max_m'].clone() * 0.9 #factor was 0.6 before
+        self.soil_reservoir['storage_m'] = self.soil_reservoir['storage_max_m'].clone() * 0.6 #factor was 0.6 before
         
         self.N = self.basinCharacteristics['giuh_ordinates'].shape[0] # giuh_ordinates are rows x 1 column for each basin, used in routing
         self.runoff_queue_m_per_timestep = torch.ones((x_conceptual.shape[0], self.N + 1), dtype=torch.float32, device=x_conceptual.device) # nash cascade
@@ -366,21 +366,21 @@ class dCFE(BaseConceptualModel):
         # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016 "https://github.com/pyet-org/pyet/blob/master/pyet/radiation.py"
         mean_temp = (x_conceptual_timestep[:,1] + x_conceptual_timestep[:, 2])/2 # x_conceptual[:,:,1] is Tmin, x_conceptual[:,:,2] is Tmax
         lambd = 2.501 - 0.002361 * mean_temp
-        shortRad = x_conceptual_timestep[:,3]*3600*24/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 day]
+        shortRad = x_conceptual_timestep[:,3] * self.time_step_size/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 day]
         pet_m_per_timestep_calc = (0.025 * shortRad * (mean_temp - (-3.0))/lambd)/1000 # convert pet [mm/day] to [m/day]
         pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
         self.potential_et_m_per_timestep = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
     
         #__________hourly below__________
-        # convert Precip from [mm/hr] to [m/hr], first conceptual_input must be precip
-        # self.timestep_rainfall_input_m = x_conceptual_timestep[:,0]/1000 # convert precip mm/hr to [m/hr]
+        #convert Precip from [mm/hr] to [m/hr], first conceptual_input must be precip
+        #self.timestep_rainfall_input_m = x_conceptual_timestep[:,0]/1000 # convert precip mm/hr to [m/hr]
         
         # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016 "https://github.com/pyet-org/pyet/blob/master/pyet/radiation.py"
-        # lambd = 2.501 - 0.002361 * x_conceptual_timestep[:,1] # x_conceptual[:,:,1] is mean temp
-        # shortRad = x_conceptual_timestep[:,2]*3600/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 hr]
-        # pet_m_per_timestep_calc = (0.025 * shortRad * (x_conceptual_timestep[:,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
-        # pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
-        # self.potential_et_m_per_timestep = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
+        #lambd = 2.501 - 0.002361 * x_conceptual_timestep[:,1] # x_conceptual[:,:,1] is mean temp
+        #shortRad = x_conceptual_timestep[:,2]*3600/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 hr]
+        #pet_m_per_timestep_calc = (0.025 * shortRad * (x_conceptual_timestep[:,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
+        #pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
+        #self.potential_et_m_per_timestep = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
     
     def calculate_input_rainfall_and_ET(self):
         """
