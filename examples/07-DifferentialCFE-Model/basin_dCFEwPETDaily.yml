@@ -2,12 +2,12 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: TestdCFEpetDaily_runArid
+experiment_name: TestdCFEpetDaily_run01031500
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 1_basinArid.txt
-validation_basin_file: 1_basinArid.txt
-test_basin_file: 1_basinArid.txt
+train_basin_file: 1_basinCHATTOOGA.txt
+validation_basin_file: 1_basinCHATTOOGA.txt
+test_basin_file: 1_basinCHATTOOGA.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
@@ -73,8 +73,8 @@ loss: MSE
 
 # specify learning rates to use starting at specific epochs (0 is the initial learning rate)
 learning_rate:
-  0: 2e-2
-  20: 2e-3
+  0: 1e-2
+  20: 5e-3
   40: 1e-3
 
 # Mini-batch size
@@ -92,9 +92,9 @@ predict_last_n: 1
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 366 #336
+seq_length: 366 # must be bigger than spin up
 
-warmup_period: 365 #365
+warmup_period: 365 #spin up period
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8
@@ -141,9 +141,10 @@ dynamic_inputs:
 
 duplicate_features:
   - PRCP(mm/day)_nldas
-  - srad(W/m2)_daymet
   - tmax(C)_daymet
   - tmin(C)_daymet
+  - srad(W/m2)_daymet
+
 dynamic_conceptual_inputs:
   - PRCP(mm/day)_nldas_copy1
   - tmin(C)_daymet_copy1

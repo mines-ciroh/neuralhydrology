@@ -239,6 +239,38 @@ class dCFE(BaseConceptualModel):
         # - K_lf: tensor, [batch_size, timestep]. Lateral flow coefficient [-]. Part of CFE calibration
         # - nash_storage: tensor, [batch_size, 2]. 2 columns for 2 "buckets" of Nash cascade
         # - giuh_ordinates: tensor, [num_coordinates]. 
+        
+        # 02177000 CHATTOOGA RIVER NEAR CLAYTON, GA
+        self.basinCharacteristics = {
+            'catchment_area_km2': 769.05 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'refkdt': 2.753617570666666 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'max_gw_storage': 0.052947464611588245 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            #Cgw = parameters['Cgw'] # the below is going to be a parameter from NN
+            'expon': 4.382352941176471 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            #gw_storage = 0.05 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+            'alpha_fc': 0.33 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'K_nash': 0.3 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'K_lf': 0.01 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'nash_storage': torch.zeros((x_conceptual.shape[0],2), dtype=torch.float32, device=x_conceptual.device),
+            'giuh_ordinates': torch.tensor([0.39, 0.29, 0.18, 0.09, 0.03, 0.01, 0.01, 0.0, 0.0], dtype=torch.float32, device=x_conceptual.device)
+        } 
+        
+        self.soil_params = {
+            'depth': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # not sure where they got these values, they don't match CAMELS, [m]
+            'bb': 8.637254901960784 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # exponent on Clapp-Hornberger function, part of calibration
+            # satdk is from NH, define this in loop
+            #'satdk': parameters['satdk'], # saturated hydraulic conductivity [m/hr], part of calibration
+            'satpsi': 0.5111765637352941 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'slop': 0.03758763542156863 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # slope coefficient, part of calibration
+            'smcmax': 0.4564483472745098 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # maximum soil moisture content [m3/m3], part of calibration
+            'wltsmc': 0.07387927075490196 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'D': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'mult': 1000.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
+        }
+        
+        
+        """
+        # 01022500
         self.basinCharacteristics = {
             'catchment_area_km2': 573.6 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
             'refkdt': 3.8266861353378374 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
@@ -265,7 +297,35 @@ class dCFE(BaseConceptualModel):
             'D': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
             'mult': 1000.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
         }
+       
+        # 01031500
+        self.basinCharacteristics = {
+            'catchment_area_km2': 769.05 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'refkdt': 2.753617570666666 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'max_gw_storage': 0.052947464611588245 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            #Cgw = parameters['Cgw'] # the below is going to be a parameter from NN
+            'expon': 4.382352941176471 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            #gw_storage = 0.05 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
+            'alpha_fc': 0.33 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'K_nash': 0.3 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'K_lf': 0.01 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'nash_storage': torch.zeros((x_conceptual.shape[0],2), dtype=torch.float32, device=x_conceptual.device),
+            'giuh_ordinates': torch.tensor([0.39, 0.29, 0.18, 0.09, 0.03, 0.01, 0.01, 0.0, 0.0], dtype=torch.float32, device=x_conceptual.device)
+        } 
         
+        self.soil_params = {
+            'depth': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # not sure where they got these values, they don't match CAMELS, [m]
+            'bb': 8.637254901960784 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # exponent on Clapp-Hornberger function, part of calibration
+            # satdk is from NH, define this in loop
+            #'satdk': parameters['satdk'], # saturated hydraulic conductivity [m/hr], part of calibration
+            'satpsi': 0.5111765637352941 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'slop': 0.03758763542156863 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # slope coefficient, part of calibration
+            'smcmax': 0.4564483472745098 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # maximum soil moisture content [m3/m3], part of calibration
+            'wltsmc': 0.07387927075490196 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'D': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+            'mult': 1000.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
+        }
+        """
         self.gw_reservoir = {
             'storage_max_m': self.basinCharacteristics['max_gw_storage'],
             # "coeff_primary": self.Cgw, -> this has been changed to dynamic parameter, will be defined in loop
