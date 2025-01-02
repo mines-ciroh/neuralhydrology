@@ -129,7 +129,7 @@ class testCFE:
     def initialize_basin_constants(self, x_conceptual: torch.Tensor):
         # ________some other constants_______
         # time-related constants
-        self.time_step_size = 3600 # num of [seconds] per hour, we go by 3600s each time step
+        self.time_step_size = 3600*24 # num of [seconds] per hour, we go by 3600s each time step
         self.timestep_h = self.time_step_size/3600 # time step in [hours]
         self.timestep_d = self.timestep_h/24 # time step in [days]
         # physics constants
