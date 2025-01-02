@@ -2,20 +2,27 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: TestdCFEpetDaily_run01031500
+experiment_name: TestdCFEpetDaily_run02177000
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 1_basinCHATTOOGA.txt
-validation_basin_file: 1_basinCHATTOOGA.txt
-test_basin_file: 1_basinCHATTOOGA.txt
+train_basin_file: 1_basin02177000.txt
+validation_basin_file: 1_basin02177000.txt
+test_basin_file: 1_basin02177000.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
-train_start_date: "01/10/2000"
-train_end_date: "30/09/2013"
-validation_start_date: "01/10/1989"
-validation_end_date: "30/09/1999"
-test_start_date: "01/10/1999"
-test_end_date: "30/09/2000"
+train_start_date: "01/10/1998"
+train_end_date: "30/09/2008"
+validation_start_date: "01/10/1990"
+validation_end_date: "30/09/1997"
+test_start_date: "01/10/1997"
+test_end_date: "30/09/1998"
+
+#train_start_date: "01/10/2000"
+#train_end_date: "30/09/2013"
+#validation_start_date: "01/10/1989"
+#validation_end_date: "30/09/1999"
+#test_start_date: "01/10/1999"
+#test_end_date: "30/09/2000"
 
 # which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
 device: cpu
@@ -69,13 +76,13 @@ output_dropout: 0.4
 optimizer: Adam
 
 # specify loss [MSE, NSE, RMSE]
-loss: MSE
+loss: RMSE
 
 # specify learning rates to use starting at specific epochs (0 is the initial learning rate)
 learning_rate:
-  0: 1e-2
-  20: 5e-3
-  40: 1e-3
+  0: 1e-4 #1e-2 before
+  20: 1e-5 #5e-3 before
+  40: 1e-8
 
 # Mini-batch size
 batch_size: 256
