@@ -11,14 +11,16 @@ class testCFE:
     def __init__(self):
         super().__init__()
     
-    def testRun(self, x_conceptual: torch.Tensor) -> torch.Tensor:
-        """_test run of CFE to be compared to original author code_
-
+    def testRun(self, x_conceptual: torch.Tensor, parameters: torch.Tensor) -> torch.Tensor:
+        """_test run of CFE to be compared to original author code for this specific basin
+        
         Args:
             x_conceptual (torch.Tensor): data of dimension ['batch_size', forcings, time_step]
             x_conceptual[:, 0, :] = precip_rate(m/s)
             x_conceptual[:, 1, :] = temperature @ 2m, (K)
             x_conceptual[:, 2, :] = shortwave radiation (W/m2)
+            
+            parameters (torch.Tensor): parameters for this run (no time-stepping)
         Returns:
             Discharge (torch.Tensor): a tensor of time_stepped output of 
             Discharge[:, 0] = runoff (mm)
@@ -34,8 +36,8 @@ class testCFE:
         # initialize basin-specific constants
         self.initialize_basin_constants(x_conceptual)
         
-        satdk = 4.22590909090909e-06*torch.tensor(1.0).repeat(x_conceptual.shape[0])
-        Cgw = 1.8e-05*torch.tensor(1.0).repeat(x_conceptual.shape[0])  
+        satdk = parameters[0]*torch.tensor(1.0).repeat(x_conceptual.shape[0])
+        Cgw = parameters[1]*torch.tensor(1.0).repeat(x_conceptual.shape[0])  
         
         # empty vector to store output
         Discharge = torch.zeros(x_conceptual.shape[2], 8)
