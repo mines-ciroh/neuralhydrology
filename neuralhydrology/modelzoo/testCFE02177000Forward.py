@@ -45,7 +45,7 @@ class testCFE:
         for i in range(x_conceptual.shape[2]):
             timestep_forcing = x_conceptual[:, :, i]
             self.timestep_CFE(x_conceptual_timestep=timestep_forcing, satdk_timestep=satdk, cgw_timestep=Cgw)
-            Discharge[i, 0] = self.flux_Qout_m[0]*1000
+            Discharge[i, 0] = self.flux_Qout_m[0]
             Discharge[i, 1] = self.flux_giuh_runoff_m[0] 
             Discharge[i, 2] = self.flux_nash_lateral_runoff_m[0]
             Discharge[i, 3] = self.flux_from_deep_gw_to_chan_m[0]
