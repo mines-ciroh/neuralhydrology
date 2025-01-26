@@ -88,18 +88,18 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 30
+epochs: 20
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
 
 # Defines which time steps are used to calculate the loss. Can't be larger than seq_length.
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a predict_last_n-value, else an int.
-predict_last_n: 1
+predict_last_n: 365
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 366 # must be bigger than spin up
+seq_length: 730 # must be bigger than spin up
 
 warmup_period: 365 #spin up period
 

@@ -74,17 +74,17 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 50
+epochs: 20
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
 
 # Defines which time steps are used to calculate the loss. Can't be larger than seq_length.
-predict_last_n: 1 # multi-timescale example's 1hr set up was 24, but when it was running it was only doing the last one
+predict_last_n: 300 # multi-timescale example's 1hr set up was 24, but when it was running it was only doing the last one
 
 # Length of the input sequence
 
-seq_length: 336 # grabbed this from multi-timescale example's 1hr set up. 
+seq_length: 500 # grabbed this from multi-timescale example's 1hr set up. 
 # This is equivalent to 2 weeks.
 
 # Number of parallel workers used in the data pipeline

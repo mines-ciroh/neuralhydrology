@@ -1,7 +1,7 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: timingSHM627_run
+experiment_name: SHMPredictLast20_run
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin.txt
@@ -86,11 +86,11 @@ clip_gradient_norm: 1
 
 # Defines which time steps are used to calculate the loss. Can't be larger than seq_length.
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a predict_last_n-value, else an int.
-predict_last_n: 1
+predict_last_n: 20
 
 # Length of the input sequence
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 627
+seq_length: 336
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8

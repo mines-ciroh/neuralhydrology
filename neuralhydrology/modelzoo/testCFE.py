@@ -21,7 +21,7 @@ class testCFE:
             x_conceptual[:, 2, :] = shortwave radiation (W/m2)
         Returns:
             Discharge (torch.Tensor): a tensor of time_stepped output of 
-            Discharge[:, 0] = runoff (mm)
+            Discharge[:, 0] = runoff (m)
             Discharge[:, 1] = flux_giuh_runoff_m (m), or GIUH runoff
             Discharge[:, 2] = flux_nash_lateral_runoff_m (m), or lateral flow
             Discharge[:, 3] = flux_from_deep_gw_to_chan_m (m), or 

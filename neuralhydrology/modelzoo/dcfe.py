@@ -32,14 +32,15 @@ class dCFE(BaseConceptualModel):
     Together with other basin-specific parameters and forcings (precip, and srad + tmean for pet) 
     and pass through the CFE for runoff predictions. 
     Spin-up period = warm_up do not have gradient tracking.  The states here are used to run one more time for prediction.
-    This model is tailored to basin ID: 01022500 right now, but can be worked on 
+    This model is tailored to basin ID: 02177000 CHATTOOGA RIVER NEAR CLAYTON, GA right now, but can be worked on 
     later to train multi-basin. 
     
     The physics is done and forward process & backward processes work so far with this specific basin and time-period of data. 
+    There's no snow module. 
     
     TODO: 
-    Debug/double check for correct physical model & magnitudes
     Improve readability
+    Integrate multi-basin training
     """
     
     def __init__(self, cfg: Config):

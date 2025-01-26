@@ -23,7 +23,7 @@ class testCFE:
             parameters (torch.Tensor): parameters for this run (no time-stepping)
         Returns:
             Discharge (torch.Tensor): a tensor of time_stepped output of 
-            Discharge[:, 0] = runoff (mm)
+            Discharge[:, 0] = runoff (m)
             Discharge[:, 1] = flux_giuh_runoff_m (m), or GIUH runoff
             Discharge[:, 2] = flux_nash_lateral_runoff_m (m), or lateral flow
             Discharge[:, 3] = flux_from_deep_gw_to_chan_m (m), or base flow

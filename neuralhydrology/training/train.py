@@ -17,4 +17,7 @@ def start_training(cfg: Config):
     else:
         raise ValueError(f"Unknown head {cfg.head}.")
     trainer.initialize_training()
+    
+    #print(sum([p.numel() for p in trainer.model.parameters()]))
+    
     trainer.train_and_validate()
