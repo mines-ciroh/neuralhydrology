@@ -85,19 +85,29 @@ class dCFE(BaseConceptualModel):
         # initialize basin-specific constants
         self.initialize_basin_constants(x_conceptual)
         
+        #HydroShare Params
+        calibration_parameters = {
+            'satdk': 4.22590909090909e-06 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+            'Cgw': 1.8e-05 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+        } 
+        # Average params that are means of the LSTM output for the prediction time period
+        #avg_parameters = {
+        #    'satdk': torch.tensor([np.mean(parameters['satdk'], axis=1)]),
+        #    'Cgw': torch.tensor([np.mean(parameters['Cgw'], axis=1)])
+        #}
         # Spin up for warm_up amount of time, do not track gradient
         with torch.no_grad():
             for j in range(0, (x_conceptual.shape[1] - lstm_out.shape[1] - 1)):
-                # run the CFE model for the time step w/ first pair of params
+                # run the CFE model for the time step w/ Hydroshare params
                 self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
-                                    satdk_timestep = parameters['satdk'][:, 0],
-                                    cgw_timestep = parameters['Cgw'][:, 0])
+                                    satdk_timestep = parameters['satdk'][:,0],
+                                    cgw_timestep = parameters['Cgw'][:,0])
                 
                 # store resulting states, right now this doesn't do anything
                 states['gw_reservoir_storage_m'][:,j] = self.gw_reservoir['storage_m']
                 states['soil_reservoir_storage_m'][:,j] = self.soil_reservoir['storage_m']
                 states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
-            
+        
         # Run model for prediction for each parameters
         for k in range(lstm_out.shape[1]):
             # run CFE for that time step, w/ time-varying params
