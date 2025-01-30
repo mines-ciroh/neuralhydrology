@@ -8,6 +8,7 @@ experiment_name: TestdCFEDaily_run02177000_Predict1yr
 train_basin_file: 1_basin02177000.txt
 validation_basin_file: 1_basin02177000.txt
 test_basin_file: 1_basin02177000.txt
+basin_id: 02177000  # useful to list this separately.
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
@@ -80,9 +81,9 @@ loss: MSE
 
 # specify learning rates to use starting at specific epochs (0 is the initial learning rate)
 learning_rate:
-  0: 5e-05 #1e-2 before
-  20: 1e-6 #5e-3 before
-  40: 1e-8
+  0: 5e-02 #1e-2 before
+  20: 1e-3 #5e-3 before
+  40: 1e-5
 
 # Mini-batch size
 batch_size: 256
@@ -124,7 +125,10 @@ save_weights_every: 1
 dataset: camels_us
 
 # Path to data set root
-data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
+# data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
+data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
+param_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+
 
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
 # can be either a list of forcings or a single forcing product
