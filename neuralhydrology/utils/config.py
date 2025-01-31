@@ -855,6 +855,14 @@ class Config(object):
     @property
     def validation_start_date(self) -> pd.Timestamp:
         return self._get_value_verbose("validation_start_date")
+    
+    @property
+    def param_dir(self) -> Path:
+        return self._cfg.get("param_dir", None)
+
+    @property
+    def basin_id(self) -> str:
+        return self._cfg["basin_id"]
 
     @property
     def verbose(self) -> int:
