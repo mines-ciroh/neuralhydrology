@@ -4,7 +4,7 @@ import torch.nn as nn
 from typing import Dict, Union
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
-from neuralhydrology.utils.dCFE_utils import get_dcfe_params
+from neuralhydrology.utils.dCFE_utils import get_dcfe_params, expand_dcfe_params_along_batch_dim
 
 # packages from cfe.py
 #import time
@@ -48,9 +48,9 @@ class dCFE(BaseConceptualModel):
         super(dCFE, self).__init__(cfg=cfg)
         
         self.cfg = cfg
-        self.soil_params, self.basinCharacteristics = get_dcfe_params(cfg=cfg, device=cfg.device)
-        
-        
+        self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(cfg=cfg, device=cfg.device)
+         # Fetch dcfe params
+       
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
         """Perform a forward pass in the hybrid-dCFE model. 
 
@@ -77,6 +77,11 @@ class dCFE(BaseConceptualModel):
                 Time-evolution of the internal states of the conceptual model.
                 Not currently used in the model.
         """
+    
+        self.batch_size = x_conceptual.shape[0]
+        self.soil_params = expand_dcfe_params_along_batch_dim(self.temp_soil_params, batch_size=self.batch_size)
+        self.basinCharacteristics = expand_dcfe_params_along_batch_dim(self.temp_basinCharacteristics, batch_size=self.batch_size)
+        
         # get model params thru baseconceptualmodel.py's function, 
         # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
@@ -86,6 +91,7 @@ class dCFE(BaseConceptualModel):
         
         # initialize basin-specific constants
         self.initialize_basin_constants(x_conceptual)
+
         
         #HydroShare Params
         calibration_parameters = {
@@ -242,7 +248,6 @@ class dCFE(BaseConceptualModel):
             'soil': 'classic', # choose between 'classic' or 'ode', 'ode' not available rn
             'partition': 'Schaake' # choose between 'Schaake' or 'Xinanjiang'
         }
-
 
         # TODO: formally soil_scheme, partition_scheme need renamed. Eventually move to config?
         
@@ -637,8 +642,11 @@ class dCFE(BaseConceptualModel):
             self.soil_params["smcmax"] * self.soil_params["D"]
             - self.soil_reservoir["storage_m"]
         )
+        print(f"soil_params[smcmax] shape: {self.soil_params['smcmax'].shape}")
+        print(f"soil_params[D] shape: {self.soil_params['D'].shape}")
+        print(f"self.soil_reservoir[storage_m]: {self.soil_reservoir['storage_m'].shape}")
         self.Schaake_adjusted_magic_constant_by_soil_type = self.basinCharacteristics['refkdt'] * self.soil_params['satdk']/ 2.0e-06 
-        
+        print(f"soil_reservoir_storage_deficit_m shape: {self.soil_reservoir_storage_deficit_m.shape}")
         rainfall_mask = self.timestep_rainfall_input_m > 0
         soil_noDeficit_mask = (self.soil_reservoir_storage_deficit_m < 0) # mark ones w/o deficit
         soil_noDeficit_rain_mask = (rainfall_mask & soil_noDeficit_mask)
@@ -646,6 +654,9 @@ class dCFE(BaseConceptualModel):
         
         if torch.any(rainfall_mask):
             # For soil_reservoir_storage_deficit_m < 0, excess = rain and depth = 0
+            print(f"soil_noDeficit_rain_mask: {soil_noDeficit_rain_mask}")
+            print(self.surface_runoff_depth_m[soil_noDeficit_rain_mask])
+            print(self.timestep_rainfall_input_m[soil_noDeficit_rain_mask])
             self.surface_runoff_depth_m[soil_noDeficit_rain_mask] = self.timestep_rainfall_input_m[soil_noDeficit_rain_mask]
             # Did not put in infiltration_depth_m as they are 0 in this case
             

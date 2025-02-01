@@ -42,3 +42,10 @@ def get_dcfe_params(cfg, device):
                             'giuh_ordinates': torch.tensor(matches['giuh_ordinates'], device=device, dtype=torch.float32),
                     }       
     return soil_params, basinCharacteristics
+
+
+def expand_dcfe_params_along_batch_dim(params, batch_size):
+    for key in params.keys():
+        if key != 'giuh_ordinates':
+            params[key] = params[key].expand(batch_size, *[-1 for _ in range(len(params[key].shape))])
+    return params
