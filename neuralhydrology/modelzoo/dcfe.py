@@ -49,7 +49,6 @@ class dCFE(BaseConceptualModel):
         
         self.cfg = cfg
         self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(cfg=cfg, device=cfg.device)
-         # Fetch dcfe params
        
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
         """Perform a forward pass in the hybrid-dCFE model. 
@@ -78,9 +77,11 @@ class dCFE(BaseConceptualModel):
                 Not currently used in the model.
         """
     
-        self.batch_size = x_conceptual.shape[0]
+        # Fetch dcfe params
+        self.batch_size = x_conceptual.shape[0] 
         self.soil_params = expand_dcfe_params_along_batch_dim(self.temp_soil_params, batch_size=self.batch_size)
         self.basinCharacteristics = expand_dcfe_params_along_batch_dim(self.temp_basinCharacteristics, batch_size=self.batch_size)
+    
         
         # get model params thru baseconceptualmodel.py's function, 
         # this ensure that the output from NN is within the correct range, built into NH
@@ -105,16 +106,16 @@ class dCFE(BaseConceptualModel):
         #}
         # Spin up for warm_up amount of time, do not track gradient
         with torch.no_grad():
-            for j in range(0, (x_conceptual.shape[1] - lstm_out.shape[1] - 1)):
-                # run the CFE model for the time step w/ Hydroshare params
-                self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
-                                    satdk_timestep = parameters['satdk'][:,0],
-                                    cgw_timestep = parameters['Cgw'][:,0])
-                
-                # store resulting states, right now this doesn't do anything
-                states['gw_reservoir_storage_m'][:,j] = self.gw_reservoir['storage_m']
-                states['soil_reservoir_storage_m'][:,j] = self.soil_reservoir['storage_m']
-                states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
+           for j in range(0, (x_conceptual.shape[1] - lstm_out.shape[1] - 1)):
+               # run the CFE model for the time step w/ Hydroshare params
+               self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
+                                   satdk_timestep = parameters['satdk'][:,0],
+                                   cgw_timestep = parameters['Cgw'][:,0])
+               
+               # store resulting states, right now this doesn't do anything
+               states['gw_reservoir_storage_m'][:,j] = self.gw_reservoir['storage_m']
+               states['soil_reservoir_storage_m'][:,j] = self.soil_reservoir['storage_m']
+               states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
         
         # Run model for prediction for each parameters
         for k in range(lstm_out.shape[1]):
@@ -642,11 +643,7 @@ class dCFE(BaseConceptualModel):
             self.soil_params["smcmax"] * self.soil_params["D"]
             - self.soil_reservoir["storage_m"]
         )
-        print(f"soil_params[smcmax] shape: {self.soil_params['smcmax'].shape}")
-        print(f"soil_params[D] shape: {self.soil_params['D'].shape}")
-        print(f"self.soil_reservoir[storage_m]: {self.soil_reservoir['storage_m'].shape}")
         self.Schaake_adjusted_magic_constant_by_soil_type = self.basinCharacteristics['refkdt'] * self.soil_params['satdk']/ 2.0e-06 
-        print(f"soil_reservoir_storage_deficit_m shape: {self.soil_reservoir_storage_deficit_m.shape}")
         rainfall_mask = self.timestep_rainfall_input_m > 0
         soil_noDeficit_mask = (self.soil_reservoir_storage_deficit_m < 0) # mark ones w/o deficit
         soil_noDeficit_rain_mask = (rainfall_mask & soil_noDeficit_mask)
@@ -654,9 +651,6 @@ class dCFE(BaseConceptualModel):
         
         if torch.any(rainfall_mask):
             # For soil_reservoir_storage_deficit_m < 0, excess = rain and depth = 0
-            print(f"soil_noDeficit_rain_mask: {soil_noDeficit_rain_mask}")
-            print(self.surface_runoff_depth_m[soil_noDeficit_rain_mask])
-            print(self.timestep_rainfall_input_m[soil_noDeficit_rain_mask])
             self.surface_runoff_depth_m[soil_noDeficit_rain_mask] = self.timestep_rainfall_input_m[soil_noDeficit_rain_mask]
             # Did not put in infiltration_depth_m as they are 0 in this case
             

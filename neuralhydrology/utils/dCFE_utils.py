@@ -45,7 +45,14 @@ def get_dcfe_params(cfg, device):
 
 
 def expand_dcfe_params_along_batch_dim(params, batch_size):
+    '''
+    Input: params: dict of basin specific paraemters for dcfe.
+    Output: new_params: dict of basin specific paramters for dcfe, but expanded along the batch dimension.
+    '''
+    new_params = {}
     for key in params.keys():
         if key != 'giuh_ordinates':
-            params[key] = params[key].expand(batch_size, *[-1 for _ in range(len(params[key].shape))])
-    return params
+            new_params[key] = params[key].expand(batch_size, *[-1 for _ in range(len(params[key].shape))])
+        elif key == 'giuh_ordinates':
+            new_params[key] = params[key] # need to treat this parameter differently
+    return new_params
