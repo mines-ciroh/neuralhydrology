@@ -125,9 +125,10 @@ save_weights_every: 1
 dataset: camels_us
 
 # Path to data set root
-# data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
-data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
-param_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+#data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
+#param_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
+param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 
 
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]

@@ -95,34 +95,63 @@ class dCFE(BaseConceptualModel):
 
         
         #HydroShare Params
-        calibration_parameters = {
-            'satdk': 4.22590909090909e-06 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'Cgw': 1.8e-05 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-        } 
+        #calibration_parameters = {
+        #    'satdk': 4.22590909090909e-06 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
+        #    'Cgw': 1.8e-05 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
+        #} 
+        
+        # Save the basin and soil params
+        calibration_soil_params = self.soil_params
+        calibration_basinCharacteristics = self.basinCharacteristics
+        
         # Average params that are means of the LSTM output for the prediction time period
-        #avg_parameters = {
-        #    'satdk': torch.tensor([np.mean(parameters['satdk'], axis=1)]),
-        #    'Cgw': torch.tensor([np.mean(parameters['Cgw'], axis=1)])
-        #}
+        #satdk_timestep = calibration_soil_params['satdk'],
+        #                           cgw_timestep = calibration_basinCharacteristics['Cgw'],
+        #                           bb_timestep = calibration_soil_params['bb'],
+        #                           smcmax_timestep = calibration_soil_params['smcmax'],
+        #                           slop_timestep = calibration_soil_params['slop'],
+        #                           max_gw_timestep = calibration_basinCharacteristics['max_gw_storage'],
+        #                           expon_timestep = calibration_basinCharacteristics['expon'],
+        #                           K_lf_timestep = calibration_basinCharacteristics['K_lf'],
+        #                           K_nash_timestep = calibration_basinCharacteristics['K_nash']
+        
         # Spin up for warm_up amount of time, do not track gradient
         with torch.no_grad():
            for j in range(0, (x_conceptual.shape[1] - lstm_out.shape[1] - 1)):
                # run the CFE model for the time step w/ Hydroshare params
                self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
                                    satdk_timestep = parameters['satdk'][:,0],
-                                   cgw_timestep = parameters['Cgw'][:,0])
+                                    cgw_timestep = parameters['Cgw'][:,0],
+                                    bb_timestep = parameters['bb'][:,0],
+                                    smcmax_timestep = parameters['smcmax'][:,0],
+                                    slop_timestep = parameters['slop'][:,0],
+                                    max_gw_timestep = parameters['max_gw_storage'][:,0],
+                                    expon_timestep = parameters['expon'][:,0],
+                                    K_lf_timestep = parameters['K_lf'][:,0],
+                                    K_nash_timestep = parameters['K_nash'][:,0]
+                                   )
                
                # store resulting states, right now this doesn't do anything
                states['gw_reservoir_storage_m'][:,j] = self.gw_reservoir['storage_m']
                states['soil_reservoir_storage_m'][:,j] = self.soil_reservoir['storage_m']
                states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
         
+        torch.autograd.set_detect_anomaly(True)
+        
         # Run model for prediction for each parameters
         for k in range(lstm_out.shape[1]):
             # run CFE for that time step, w/ time-varying params
             self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,(j + 1 + k),:] ,
                               satdk_timestep = parameters['satdk'][:,k],
-                              cgw_timestep = parameters['Cgw'][:,k])
+                              cgw_timestep = parameters['Cgw'][:,k],
+                              bb_timestep = parameters['bb'][:,k],
+                              smcmax_timestep = parameters['smcmax'][:,k],
+                              slop_timestep = parameters['slop'][:,k],
+                              max_gw_timestep = parameters['max_gw_storage'][:,k],
+                              expon_timestep = parameters['expon'][:,k],
+                              K_lf_timestep = parameters['K_lf'][:,k],
+                              K_nash_timestep = parameters['K_nash'][:,k]
+                              )
             
             # store states
             states['gw_reservoir_storage_m'][:,(j + 1 + k)] = self.gw_reservoir['storage_m']
@@ -130,7 +159,7 @@ class dCFE(BaseConceptualModel):
             states['first_nash_storage'][:,(j + 1 + k)] = self.basinCharacteristics['nash_storage'][:,0]
             
             # store runoff for back-prop
-            out[:,k,0] = self.flux_Qout_m * self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
+            out[:,k,0] = self.flux_Qout_m * 1000 #* self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 
@@ -144,23 +173,31 @@ class dCFE(BaseConceptualModel):
 
     @property
     def parameter_ranges(self):
-        return {'satdk': [0.0, 0.000726], # Saturated hydraulic conductivity
-                'Cgw': [0.0000018, 0.0018], # Primary groundwater reservoir constant
-                } # the only 2 parameters from NN that was from the original dCFE model was Cgw & satdk
+        return {'satdk': [0.0, 0.000726], # Saturated hydraulic conductivity [m/hr]
+                'Cgw': [0.0000018, 0.0018], # Primary groundwater reservoir constant [m/hr]
+                'bb': [0, 21.94], # exponent on Clapp-Hornberg functin [-]
+                'smcmax': [0.20554, 1], # Max soil moisture content [m3/hr3]
+                'slop': [0, 1], # slope coefficient [-]
+                'max_gw_storage': [0.01, 0.25], # [m]
+                'expon': [1, 8], # A primary gorundwter nonlinear reservoir exponential constant [-]
+                'K_lf': [0, 1], # Lateral flow coefficient
+                'K_nash': [0, 1] # Nash cascade discharge coefficient
+                } 
         
         
     #___________________Defining methods for CFE for each time step__________________
-    def timestep_CFE(self, x_conceptual_timestep: torch.Tensor, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor):
+    def timestep_CFE(self, x_conceptual_timestep: torch.Tensor, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor, 
+                     bb_timestep: torch.Tensor, smcmax_timestep: torch.Tensor, slop_timestep: torch.Tensor,
+                     max_gw_timestep: torch.Tensor, expon_timestep: torch.Tensor, K_lf_timestep: torch.Tensor, K_nash_timestep: torch.Tensor):
         """
         INPUT: 
         x_conceptual_timestep = x_conceptual[:,j,:] forcing for every time step. 
         rainfall is x_conceptual_timestep[:,0] and srad is x_conceptual_timestep[:,1]
         """
         
-        self.soil_params['satdk'] = satdk_timestep
-        self.soil_reservoir['coeff_primary'] = self.soil_params['satdk']*self.soil_params['slop']*self.time_step_size # Eq.11, unit [m/s] * [3600s] now its [m/hr]
-        self.basinCharacteristics['Cgw'] = cgw_timestep
-        self.gw_reservoir['coeff_primary'] = cgw_timestep
+        self.timestep_basin_constants(satdk_timestep=satdk_timestep, cgw_timestep=cgw_timestep, bb_timestep=bb_timestep,
+                                      smcmax_timestep=smcmax_timestep, slop_timestep=slop_timestep, max_gw_timestep=max_gw_timestep,
+                                      expon_timestep=expon_timestep, K_lf_timestep=K_lf_timestep, K_nash_timestep=K_nash_timestep)
             
         self.initialize_flux_timestep(x_conceptual_timestep)
         
@@ -422,6 +459,47 @@ class dCFE(BaseConceptualModel):
         
         #assert torch.all(self.soil_reservoir['storage_m'] >= 0), "Variable went negative, stopping program."
     
+    def timestep_basin_constants(self, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor, bb_timestep: torch.Tensor, 
+                                 smcmax_timestep: torch.Tensor, slop_timestep: torch.Tensor,max_gw_timestep: torch.Tensor, 
+                                 expon_timestep: torch.Tensor, K_lf_timestep: torch.Tensor, K_nash_timestep: torch.Tensor):
+        
+        self.soil_params['bb'] = bb_timestep
+        self.soil_params['satdk'] = satdk_timestep
+        self.soil_params['smcmax'] = smcmax_timestep
+        self.soil_params['slop'] = slop_timestep
+        self.basinCharacteristics['Cgw'] = cgw_timestep
+        self.basinCharacteristics['max_gw_storage'] = max_gw_timestep
+        self.basinCharacteristics['K_nash'] = K_nash_timestep
+        self.basinCharacteristics['K_lf'] = K_lf_timestep
+        self.basinCharacteristics['expon'] = expon_timestep
+        
+        self.gw_reservoir['storage_max_m'] = self.basinCharacteristics['max_gw_storage']
+        self.gw_reservoir['coeff_primary'] = self.basinCharacteristics['Cgw']
+        self.gw_reservoir['exponent_primary'] = self.basinCharacteristics['expon']
+        
+        ## Soil Reservoir Configuration
+        self.field_capacity_atm_press_fraction = self.basinCharacteristics['alpha_fc']
+        # soil outflux calculation, Eq. 3
+        self.H_water_table_m = self.field_capacity_atm_press_fraction * self.atm_press_Pa/self.unit_weight_water_N_per_m3 # [m]
+        self.Omega = self.H_water_table_m - self.trigger_z_m
+        # upper & lower limit of the integral in Eq. 4
+        self.lower_lim = torch.pow(self.Omega, (1.0 - 1.0 / self.soil_params["bb"])) / (
+            1.0 - 1.0 / self.soil_params["bb"])
+        self.upper_lim = torch.pow(self.Omega + self.soil_params["D"], (1.0 - 1.0 / self.soil_params["bb"])) / (1.0 - 1.0 / self.soil_params["bb"])
+        # integral & power term in Eq.4, Eq.5
+        self.storage_thresh_pow_term = torch.pow(1.0 / self.soil_params["satpsi"], (-1.0 / self.soil_params["bb"]))
+        self.lim_diff = self.upper_lim - self.lower_lim
+        self.field_capacity_storage_threshold_m = (self.soil_params["smcmax"] * self.storage_thresh_pow_term * self.lim_diff)
+        # lateral flow function parameters
+        self.lateral_flow_threshold_storage_m = self.field_capacity_storage_threshold_m
+        
+        self.soil_reservoir['storage_max_m'] = self.soil_params['smcmax']*self.soil_params['D']
+        self.soil_reservoir['storage_threshold_primary_m'] = self.field_capacity_storage_threshold_m
+        self.soil_reservoir['coeff_secondary'] = self.basinCharacteristics['K_lf']
+        self.soil_reservoir['storage_threshold_secondary_m'] = self.lateral_flow_threshold_storage_m
+        self.soil_reservoir['coeff_primary'] = self.soil_params['satdk']*self.soil_params['slop']*self.time_step_size # Eq.11, unit [m/s] * [3600s] now its [m/hr]
+        
+    
     def initialize_flux_timestep(self, x_conceptual_timestep: torch.Tensor):
         # reset fluxes that can store information at every time-step. This will be #basin x 
         self.surface_runoff_depth_m = torch.tensor(0.0, dtype=torch.float32, device=x_conceptual_timestep.device).repeat(x_conceptual_timestep.shape[0])
@@ -640,8 +718,8 @@ class dCFE(BaseConceptualModel):
          infilt_excess_m = timestep_rainfall_m - infilt_depth_m
         """
         self.soil_reservoir_storage_deficit_m = (
-            self.soil_params["smcmax"] * self.soil_params["D"]
-            - self.soil_reservoir["storage_m"]
+            self.soil_params['smcmax'] * self.soil_params['D']
+            - self.soil_reservoir['storage_m']
         )
         self.Schaake_adjusted_magic_constant_by_soil_type = self.basinCharacteristics['refkdt'] * self.soil_params['satdk']/ 2.0e-06 
         rainfall_mask = self.timestep_rainfall_input_m > 0
@@ -655,10 +733,10 @@ class dCFE(BaseConceptualModel):
             # Did not put in infiltration_depth_m as they are 0 in this case
             
             # For soil_reservoir_storage_deficit_m >= 0
-            Schaake_parenthetical_term = (1 - torch.exp(- self.Schaake_adjusted_magic_constant_by_soil_type * self.timestep_d))
-            Ic = self.soil_reservoir_storage_deficit_m * Schaake_parenthetical_term
-            Px = self.timestep_rainfall_input_m
-            self.infiltration_depth_m[soil_deficit_rain_mask] = (Px*(Ic/(Px + Ic)))[soil_deficit_rain_mask]
+            Schaake_parenthetical_term = (1 - torch.exp(- self.Schaake_adjusted_magic_constant_by_soil_type[soil_deficit_rain_mask] * self.timestep_d))
+            Ic = self.soil_reservoir_storage_deficit_m[soil_deficit_rain_mask] * Schaake_parenthetical_term
+            Px = self.timestep_rainfall_input_m[soil_deficit_rain_mask]
+            self.infiltration_depth_m[soil_deficit_rain_mask] = (Px*(Ic/(Px + Ic)))
 
             # From vector above, make another condition
             soil_excess_mask = (self.timestep_rainfall_input_m - self.infiltration_depth_m > 0) # mask for if rainfall is more than infilt depth

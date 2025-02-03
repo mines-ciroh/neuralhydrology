@@ -35,6 +35,7 @@ def get_dcfe_params(cfg, device):
                             'refkdt': torch.tensor(matches["refkdt"], device=device, dtype=torch.float32),
                             'max_gw_storage': torch.tensor(matches['max_gw_storage'], device=device, dtype=torch.float32),
                             'expon': torch.tensor(matches['expon'], device=device, dtype=torch.float32),
+                            'Cgw': torch.tensor(matches['Cgw'], device=device, dtype=torch.float32),
                             'alpha_fc': torch.tensor(matches['alpha_fc'], device=device, dtype=torch.float32),
                             'K_nash': torch.tensor(matches['K_nash'], device=device, dtype=torch.float32),
                             'K_lf': torch.tensor(matches['K_lf'], device=device, dtype=torch.float32),
