@@ -5,6 +5,7 @@ from typing import Dict, Union
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils.dCFE_utils import get_dcfe_params, expand_dcfe_params_along_batch_dim
+from pathlib import Path
 
 # packages from cfe.py
 #import time
@@ -49,7 +50,74 @@ class dCFE(BaseConceptualModel):
         
         self.cfg = cfg
         self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(cfg=cfg, device=cfg.device)
-       
+        
+    def testRun(self, x_conceptual: torch.Tensor, parameters: torch.Tensor) -> torch.Tensor:
+        """_test run of CFE to be compared to original author code for this specific basin
+        
+        Args:
+            x_conceptual (torch.Tensor): data of dimension ['batch_size', time_step, forcings]
+            x_conceptual[:, :, 0] = precip_rate(m/s)
+            x_conceptual[:, :, 1] = temperature @ 2m, (K)
+            x_conceptual[:, :, 2] = shortwave radiation (W/m2)
+            
+            parameters (torch.Tensor): parameters of dimension ['batch_size', time_step, n_parameters]
+            parameters[:, :, 0] = satdk
+            parameters[:, :, 1] = cgw
+            parameters[:, :, 2] = bb
+            parameters[:, :, 3] = smcmax
+            parameters[:, :, 4] = slop
+            parameters[:, :, 5] = max_gw
+            parameters[:, :, 6] = expon
+            parameters[:, :, 7] = K_lf
+            parameters[:, :, 8] = K_nash
+            
+        Returns:
+            Discharge (torch.Tensor): a tensor of time_stepped output of 
+            Discharge[:, :, 0] = runoff (m)
+            Discharge[:, :, 1] = flux_giuh_runoff_m (m), or GIUH runoff
+            Discharge[:, :, 2] = flux_nash_lateral_runoff_m (m), or lateral flow
+            Discharge[:, :, 3] = flux_from_deep_gw_to_chan_m (m), or base flow
+            Discharge[:, :, 4] = surface_runoff_depth_m
+            Discharge[:, :, 5] = actual_et_m_per_timestep, or total ET
+            Discharge[:, :, 6] = soil storage m
+            Discharge[:, :, 7] = gw storage m
+        """
+        # empty vector to store output
+        Discharge = torch.zeros(parameters.shape[2], 8)
+        
+        config_path = Path('/Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/neuralhydrology/examples/07-DifferentialCFE-Model/basin_dCFEwPETDaily.yml')
+        cfg = Config(config_path, dev_mode=True)
+
+        # get dcfe params (include calibrated)
+        self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(cfg=cfg, device=cfg.device)
+        # make sure right batch size
+        self.batch_size = x_conceptual.shape[0] 
+        self.soil_params = expand_dcfe_params_along_batch_dim(self.temp_soil_params, batch_size=self.batch_size)
+        self.basinCharacteristics = expand_dcfe_params_along_batch_dim(self.temp_basinCharacteristics, batch_size=self.batch_size)
+        
+        self.initialize_basin_constants(x_conceptual)
+        
+        for i in range(x_conceptual.shape[2]):
+            self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,i,:],
+                                  satdk_timestep = parameters[:, i, 0],
+                                  cgw_timestep = parameters[:, i, 1],
+                                  bb_timestep = parameters[:, i, 2],
+                                  smcmax_timestep = parameters[:, i, 3],
+                                  slop_timestep = parameters[:, i, 4],
+                                  max_gw_timestep = parameters[:, i, 5],
+                                  expon_timestep = parameters[:, i, 6],
+                                  K_lf_timestep = parameters[:, i, 7],
+                                  K_nash_timestep = parameters[:, i, 8])
+            Discharge[i, 0] = self.flux_Qout_m[0]
+            Discharge[i, 1] = self.flux_giuh_runoff_m[0] 
+            Discharge[i, 2] = self.flux_nash_lateral_runoff_m[0]
+            Discharge[i, 3] = self.flux_from_deep_gw_to_chan_m[0]
+            Discharge[i, 4] = self.surface_runoff_depth_m[0]
+            Discharge[i, 5] = self.actual_et_m_per_timestep[0] # total ET
+            Discharge[i, 6] = self.soil_reservoir['storage_m'][0] # soil water storage
+            Discharge[i, 7] = self.gw_reservoir['storage_m'][0] # gw storage
+        return Discharge
+    
     def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
         """Perform a forward pass in the hybrid-dCFE model. 
 

@@ -878,6 +878,14 @@ class Config(object):
         """
         return self._cfg.get("verbose", 1)
 
+    @property
+    def calibrated_params_path(self) -> Path:
+        return self._cfg.get("calibrated_params_path", None)
+    
+    @property
+    def spin_up(self) -> int:
+        return self._cfg.get("spin_up", 0)
+
     def _get_embedding_spec(self, embedding_spec: dict) -> dict:
         if isinstance(embedding_spec, bool) and embedding_spec:  #
             msg = [

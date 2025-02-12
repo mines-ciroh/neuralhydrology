@@ -2,7 +2,7 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: TestdCFEDaily_run02177000_Predict1yr
+experiment_name: TestdCFEDaily_run02177000_DynamicSpinUp20epoch
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin02177000.txt
@@ -12,7 +12,7 @@ basin_id: 02177000  # useful to list this separately.
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
-train_end_date: "30/09/2008"
+train_end_date: "30/09/2014"
 validation_start_date: "01/10/1990"
 validation_end_date: "30/09/1999"
 test_start_date: "01/10/1999"
@@ -65,7 +65,7 @@ hidden_size: 20
 initial_forget_bias: 3
 
 # Dropout applied to the output of the LSTM
-output_dropout: 0.4
+output_dropout: 0.2 # 10 to 20% dropout is a good amount, but default was 0.4
 
 #### ----- dCFE Specific Configurations ---- #####
 # soil_scheme: classic
@@ -99,10 +99,11 @@ clip_gradient_norm: 1
 predict_last_n: 365
 
 # Length of the input sequence
-# If use_frequencies is used, this needs to be a dict mapping each frequency to a seq_length, else an int.
-seq_length: 730 # must be bigger than spin up
+seq_length: 910 # must be predict_last_n + warmup_period + spin_up
 
-warmup_period: 365 #spin up period
+warmup_period: 180 #for the LSTM model
+
+spin_up: 365 #for the CFE part of the model
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8
@@ -129,7 +130,7 @@ dataset: camels_us
 #param_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
 param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
-
+calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs
 
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
 # can be either a list of forcings or a single forcing product

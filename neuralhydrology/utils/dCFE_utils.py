@@ -1,11 +1,13 @@
 from pathlib import Path
 import torch
 import re
-import os 
+import os
+import json
 from neuralhydrology.utils.config import Config
 
 def get_dcfe_params(cfg, device):
     cfe_param_dir = cfg.param_dir
+    calibrated_params_dir = cfg.calibrated_params_path
     basin_id = str(cfg.basin_id)
     if basin_id[0] != '0':
         basin_id = '0' + basin_id
@@ -41,7 +43,27 @@ def get_dcfe_params(cfg, device):
                             'K_lf': torch.tensor(matches['K_lf'], device=device, dtype=torch.float32),
                             'nash_storage': torch.tensor(matches['nash_storage'], device=device, dtype=torch.float32),
                             'giuh_ordinates': torch.tensor(matches['giuh_ordinates'], device=device, dtype=torch.float32),
-                    }       
+                    }
+
+    # Update parameters from JSON file in calibrated_params_dir
+    json_file_path = calibrated_params_dir / f"cat_{basin_id}_testrun_results.json"
+    if json_file_path.exists():
+        with open(json_file_path, 'r') as file:
+            data = json.load(file)
+            best_params = data.get("best_params", {})
+            
+            # Update the parameters in soil_params and basinCharacteristics
+            soil_params['bb'] = torch.tensor(best_params.get("bb", soil_params['bb'].item()), device=device, dtype=torch.float32)
+            soil_params['smcmax'] = torch.tensor(best_params.get("smcmax", soil_params['smcmax'].item()), device=device, dtype=torch.float32)
+            soil_params['satdk'] = torch.tensor(best_params.get("satdk", soil_params['satdk'].item()), device=device, dtype=torch.float32)
+            soil_params['slop'] = torch.tensor(best_params.get("slop", soil_params['slop'].item()), device=device, dtype=torch.float32)
+            basinCharacteristics['max_gw_storage'] = torch.tensor(best_params.get("max_gw_storage", basinCharacteristics['max_gw_storage'].item()), device=device, dtype=torch.float32)
+            basinCharacteristics['expon'] = torch.tensor(best_params.get("expon", basinCharacteristics['expon'].item()), device=device, dtype=torch.float32)
+            basinCharacteristics['Cgw'] = torch.tensor(best_params.get("Cgw", basinCharacteristics['Cgw'].item()), device=device, dtype=torch.float32)
+            basinCharacteristics['K_lf'] = torch.tensor(best_params.get("K_lf", basinCharacteristics['K_lf'].item()), device=device, dtype=torch.float32)
+            basinCharacteristics['K_nash'] = torch.tensor(best_params.get("K_nash", basinCharacteristics['K_nash'].item()), device=device, dtype=torch.float32)
+            basinCharacteristics['refkdt'] = torch.tensor(best_params.get("scheme", basinCharacteristics['refkdt'].item()), device=device, dtype=torch.float32)
+
     return soil_params, basinCharacteristics
 
 

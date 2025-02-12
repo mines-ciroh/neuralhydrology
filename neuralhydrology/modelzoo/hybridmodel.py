@@ -60,14 +60,11 @@ class HybridModel(BaseModel):
         lstm_output = lstm_output.transpose(0, 1)  # reshape to [batch_size, seq, n_hiddens]
 
         # map lstm outputs to the dimension of the conceptual model´s parameters
-        lstm_out = lstm_output[:, self.cfg.warmup_period:, :]
+        lstm_out = lstm_output[:, self.cfg.warmup_period:, :] # remove warmup period from LSTM output
         lstm_out = self.linear(lstm_out)
         
         # get predictions
-        if self.cfg.conceptual_model.lower() == 'dcfe': # for dCFE, we want all the forcings
-            pred = self.conceptual_model(x_conceptual=data['x_d_c'], lstm_out=lstm_out)
-        elif self.cfg.conceptual_model.lower() == 'shm':
-            pred = self.conceptual_model(x_conceptual=data['x_d_c'][:, self.cfg.warmup_period:, :], lstm_out=lstm_out)
+        pred = self.conceptual_model(x_conceptual=data['x_d_c'][:, self.cfg.warmup_period:, :], lstm_out=lstm_out)
 
         return pred
 
