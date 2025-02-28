@@ -91,40 +91,45 @@ class dCFE(BaseConceptualModel):
         # initialize structures to store the information
         states, out = self._initialize_information(conceptual_inputs=x_conceptual, lstm_out=lstm_out)
         
-        # initialize basin-specific constants
+        # use basin params from HydroShare to initialize other constants
+        calibration_soil_params = self.soil_params
+        calibration_basinCharacteristics = self.basinCharacteristics
         self.initialize_basin_constants(x_conceptual)
         
         # Spin up for warm_up amount of time, do not track gradient
         with torch.no_grad():
            for j in range(0, (lstm_out.shape[1] - self.cfg.spin_up)):
                 # run the CFE model for the time step w/ Hydroshare params
-                # self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
-                #               satdk_timestep = calibration_soil_params['satdk'],
-                #               cgw_timestep = calibration_basinCharacteristics['Cgw'],
-                #               bb_timestep = calibration_soil_params['bb'],
-                #               smcmax_timestep = calibration_soil_params['smcmax'],
-                #               slop_timestep = calibration_soil_params['slop'],
-                #               max_gw_timestep = calibration_basinCharacteristics['max_gw_storage'],
-                #               expon_timestep = calibration_basinCharacteristics['expon'],
-                #               K_lf_timestep = calibration_basinCharacteristics['K_lf'],
-                #               K_nash_timestep = calibration_basinCharacteristics['K_nash']
-                #               )
+                # only grab first time index
+                self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
+                               satdk_timestep = calibration_soil_params['satdk'],
+                               cgw_timestep = calibration_basinCharacteristics['Cgw'],
+                               bb_timestep = calibration_soil_params['bb'],
+                               smcmax_timestep = calibration_soil_params['smcmax'],
+                               slop_timestep = calibration_soil_params['slop'],
+                               max_gw_timestep = calibration_basinCharacteristics['max_gw_storage'],
+                               expon_timestep = calibration_basinCharacteristics['expon'],
+                               K_lf_timestep = calibration_basinCharacteristics['K_lf'],
+                               K_nash_timestep = calibration_basinCharacteristics['K_nash'],
+                               satpsi_timestep = calibration_soil_params['satpsi']
+                               )
+                
                 ###### Dynamic spin-up #######
-                self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:],
-                                  satdk_timestep = parameters['satdk'][:,j],
-                                  cgw_timestep = parameters['Cgw'][:,j],
-                                  bb_timestep = parameters['bb'][:,j],
-                                  smcmax_timestep = parameters['smcmax'][:,j],
-                                  slop_timestep = parameters['slop'][:,j],
-                                  max_gw_timestep = parameters['max_gw_storage'][:,j],
-                                  expon_timestep = parameters['expon'][:,j],
-                                  K_lf_timestep = parameters['K_lf'][:,j],
-                                  K_nash_timestep = parameters['K_nash'][:,j]
-                                  )
+                #self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:],
+                #                  satdk_timestep = parameters['satdk'][:,j],
+                #                  cgw_timestep = parameters['Cgw'][:,j],
+                #                  bb_timestep = parameters['bb'][:,j],
+                #                  smcmax_timestep = parameters['smcmax'][:,j],
+                #                  slop_timestep = parameters['slop'][:,j],
+                #                  max_gw_timestep = parameters['max_gw_storage'][:,j],
+                #                  expon_timestep = parameters['expon'][:,j],
+                #                  K_lf_timestep = parameters['K_lf'][:,j],
+                #                  K_nash_timestep = parameters['K_nash'][:,j]
+                #                  )
                 
                 ###### Average LSTM output spin-up #######
-                # spin_up_end = lstm_out.shape[1] - self.cfg.spin_up - 1
-                # self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:],
+                #spin_up_end = lstm_out.shape[1] - self.cfg.spin_up - 1
+                #self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:],
                 #                   satdk_timestep = parameters['satdk'][:, :spin_up_end].mean(dim=1),
                 #                   cgw_timestep = parameters['Cgw'][:, :spin_up_end].mean(dim=1),
                 #                   bb_timestep = parameters['bb'][:, :spin_up_end].mean(dim=1),
@@ -133,7 +138,8 @@ class dCFE(BaseConceptualModel):
                 #                   max_gw_timestep = parameters['max_gw_storage'][:, :spin_up_end].mean(dim=1),
                 #                   expon_timestep = parameters['expon'][:, :spin_up_end].mean(dim=1),
                 #                   K_lf_timestep = parameters['K_lf'][:, :spin_up_end].mean(dim=1),
-                #                   K_nash_timestep = parameters['K_nash'][:, :spin_up_end].mean(dim=1)
+                #                   K_nash_timestep = parameters['K_nash'][:, :spin_up_end].mean(dim=1),
+                #                   satpsi_timestep = parameters['satpsi'][:, :spin_up_end].mean(dim=1)
                 #                   )
                 
                 out[:,j,0] = self.flux_Qout_m * 1000 # this will not be included for back prop due to predict_last_n
@@ -143,10 +149,10 @@ class dCFE(BaseConceptualModel):
                 states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
         
         torch.autograd.set_detect_anomaly(True)
-        
+        spin_up_start = self.cfg.spin_up
         # Run model for prediction for each parameters
-        for k in range(self.cfg.spin_up, lstm_out.shape[1]):
-            # run CFE for that time step, w/ time-varying params
+        for k in range(spin_up_start, lstm_out.shape[1]):
+            ##### run CFE for that time step, w/ time-varying params ######
             self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,k,:] ,
                               satdk_timestep = parameters['satdk'][:,k],
                               cgw_timestep = parameters['Cgw'][:,k],
@@ -156,9 +162,25 @@ class dCFE(BaseConceptualModel):
                               max_gw_timestep = parameters['max_gw_storage'][:,k],
                               expon_timestep = parameters['expon'][:,k],
                               K_lf_timestep = parameters['K_lf'][:,k],
-                              K_nash_timestep = parameters['K_nash'][:,k]
+                              K_nash_timestep = parameters['K_nash'][:,k],
+                              satpsi_timestep = parameters['satpsi'][:,k]
                               )
             
+            ##### run CFE for that time step, w/ average of params after spin-up#####
+            """
+            self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,k,:] ,
+                              satdk_timestep = parameters['satdk'][:,spin_up_start:].mean(dim=1),
+                              cgw_timestep = parameters['Cgw'][:,spin_up_start:].mean(dim=1),
+                              bb_timestep = parameters['bb'][:,spin_up_start:].mean(dim=1),
+                              smcmax_timestep = parameters['smcmax'][:,spin_up_start:].mean(dim=1),
+                              slop_timestep = parameters['slop'][:,spin_up_start:].mean(dim=1),
+                              max_gw_timestep = parameters['max_gw_storage'][:,spin_up_start:].mean(dim=1),
+                              expon_timestep = parameters['expon'][:,spin_up_start:].mean(dim=1),
+                              K_lf_timestep = parameters['K_lf'][:,spin_up_start:].mean(dim=1),
+                              K_nash_timestep = parameters['K_nash'][:,spin_up_start:].mean(dim=1),
+                              satpsi_timestep = parameters['satpsi'][:,spin_up_start:].mean(dim=1)
+                              )
+            """
             # store states
             states['gw_reservoir_storage_m'][:,k] = self.gw_reservoir['storage_m']
             states['soil_reservoir_storage_m'][:,k] = self.soil_reservoir['storage_m']
@@ -187,14 +209,16 @@ class dCFE(BaseConceptualModel):
                 'max_gw_storage': [0.01, 0.25], # [m]
                 'expon': [1, 8], # A primary gorundwter nonlinear reservoir exponential constant [-]
                 'K_lf': [0, 1], # Lateral flow coefficient
-                'K_nash': [0, 1] # Nash cascade discharge coefficient
+                'K_nash': [0, 1], # Nash cascade discharge coefficient
+                'satpsi': [0.05, 0.95]
                 } 
         
         
     #___________________Defining methods for CFE for each time step__________________
     def timestep_CFE(self, x_conceptual_timestep: torch.Tensor, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor, 
                      bb_timestep: torch.Tensor, smcmax_timestep: torch.Tensor, slop_timestep: torch.Tensor,
-                     max_gw_timestep: torch.Tensor, expon_timestep: torch.Tensor, K_lf_timestep: torch.Tensor, K_nash_timestep: torch.Tensor):
+                     max_gw_timestep: torch.Tensor, expon_timestep: torch.Tensor, K_lf_timestep: torch.Tensor, K_nash_timestep: torch.Tensor,
+                     satpsi_timestep: torch.Tensor):
         """
         INPUT: 
         x_conceptual_timestep = x_conceptual[:,j,:] forcing for every time step. 
@@ -203,7 +227,8 @@ class dCFE(BaseConceptualModel):
         
         self.timestep_basin_constants(satdk_timestep=satdk_timestep, cgw_timestep=cgw_timestep, bb_timestep=bb_timestep,
                                       smcmax_timestep=smcmax_timestep, slop_timestep=slop_timestep, max_gw_timestep=max_gw_timestep,
-                                      expon_timestep=expon_timestep, K_lf_timestep=K_lf_timestep, K_nash_timestep=K_nash_timestep)
+                                      expon_timestep=expon_timestep, K_lf_timestep=K_lf_timestep, K_nash_timestep=K_nash_timestep,
+                                      satpsi_timestep=satpsi_timestep)
             
         self.initialize_flux_timestep(x_conceptual_timestep)
         
@@ -295,64 +320,6 @@ class dCFE(BaseConceptualModel):
 
         # TODO: formally soil_scheme, partition_scheme need renamed. Eventually move to config?
         
-        
-        """
-        # 01022500
-        self.basinCharacteristics = {
-            'catchment_area_km2': 573.6 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'refkdt': 3.8266861353378374 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'max_gw_storage': 0.021342666010108112 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            #Cgw = parameters['Cgw'] # the below is going to be a parameter from NN
-            'expon': 6.72972972972973 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            #gw_storage = 0.05 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
-            'alpha_fc': 0.33 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'K_nash': 0.03 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'K_lf': 0.01 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'nash_storage': torch.zeros((x_conceptual.shape[0],2), dtype=torch.float32, device=x_conceptual.device),
-            'giuh_ordinates': torch.tensor([0.93, 0.06, 0.1, 0.0, 0.0], dtype=torch.float32, device=x_conceptual.device)
-        } 
-        
-        self.soil_params = {
-            'depth': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # not sure where they got these values, they don't match CAMELS, [m]
-            'bb': 8.013513513513514 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # exponent on Clapp-Hornberger function, part of calibration
-            # satdk is from NH, define this in loop
-            #'satdk': parameters['satdk'], # saturated hydraulic conductivity [m/hr], part of calibration
-            'satpsi': 0.1647076737162162 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'slop': 0.08824091635135137 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # slope coefficient, part of calibration
-            'smcmax': 0.37300223004054056 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # maximum soil moisture content [m3/m3], part of calibration
-            'wltsmc': 0.04966811960810811* torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'D': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'mult': 1000.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
-        }
-       
-        # 01031500
-        self.basinCharacteristics = {
-            'catchment_area_km2': 769.05 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'refkdt': 2.753617570666666 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'max_gw_storage': 0.052947464611588245 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            #Cgw = parameters['Cgw'] # the below is going to be a parameter from NN
-            'expon': 4.382352941176471 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            #gw_storage = 0.05 * torch.ones((x_conceptual.shape[0], x_conceptual.shape[1]), dtype=torch.float32, device=x_conceptual.device)
-            'alpha_fc': 0.33 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'K_nash': 0.3 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'K_lf': 0.01 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'nash_storage': torch.zeros((x_conceptual.shape[0],2), dtype=torch.float32, device=x_conceptual.device),
-            'giuh_ordinates': torch.tensor([0.39, 0.29, 0.18, 0.09, 0.03, 0.01, 0.01, 0.0, 0.0], dtype=torch.float32, device=x_conceptual.device)
-        } 
-        
-        self.soil_params = {
-            'depth': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # not sure where they got these values, they don't match CAMELS, [m]
-            'bb': 8.637254901960784 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # exponent on Clapp-Hornberger function, part of calibration
-            # satdk is from NH, define this in loop
-            #'satdk': parameters['satdk'], # saturated hydraulic conductivity [m/hr], part of calibration
-            'satpsi': 0.5111765637352941 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), 
-            'slop': 0.03758763542156863 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # slope coefficient, part of calibration
-            'smcmax': 0.4564483472745098 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]), # maximum soil moisture content [m3/m3], part of calibration
-            'wltsmc': 0.07387927075490196 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'D': 2.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0]),
-            'mult': 1000.0 * torch.tensor(1.0, dtype=torch.float32, device=x_conceptual.device).repeat(x_conceptual.shape[0])
-        }
-        """
         self.gw_reservoir = {
             'storage_max_m': self.basinCharacteristics['max_gw_storage'],
             # "coeff_primary": self.Cgw, -> this has been changed to dynamic parameter, will be defined in loop
@@ -427,12 +394,14 @@ class dCFE(BaseConceptualModel):
     
     def timestep_basin_constants(self, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor, bb_timestep: torch.Tensor, 
                                  smcmax_timestep: torch.Tensor, slop_timestep: torch.Tensor,max_gw_timestep: torch.Tensor, 
-                                 expon_timestep: torch.Tensor, K_lf_timestep: torch.Tensor, K_nash_timestep: torch.Tensor):
+                                 expon_timestep: torch.Tensor, K_lf_timestep: torch.Tensor, K_nash_timestep: torch.Tensor,
+                                 satpsi_timestep: torch.Tensor):
         
         self.soil_params['bb'] = bb_timestep
         self.soil_params['satdk'] = satdk_timestep
         self.soil_params['smcmax'] = smcmax_timestep
         self.soil_params['slop'] = slop_timestep
+        self.soil_params['satpsi'] = satpsi_timestep
         self.basinCharacteristics['Cgw'] = cgw_timestep
         self.basinCharacteristics['max_gw_storage'] = max_gw_timestep
         self.basinCharacteristics['K_nash'] = K_nash_timestep
@@ -1225,7 +1194,7 @@ class dCFE(BaseConceptualModel):
             parameters[:, :, 6] = expon
             parameters[:, :, 7] = K_lf
             parameters[:, :, 8] = K_nash
-            
+            parameters[:, :, 9] = satpsi
         Returns:
             Discharge (torch.Tensor): a tensor of dimension ['batch_size', time_step, n_CFE_output], of time_stepped output of 
             Discharge[:, :, 0] = runoff (m/timestep)
@@ -1262,7 +1231,9 @@ class dCFE(BaseConceptualModel):
                                   max_gw_timestep = parameters[:, i, 5],
                                   expon_timestep = parameters[:, i, 6],
                                   K_lf_timestep = parameters[:, i, 7],
-                                  K_nash_timestep = parameters[:, i, 8])
+                                  K_nash_timestep = parameters[:, i, 8],
+                                  satpsi_timestep = parameters[:, i, 9]
+                                  )
             Discharge[i, 0] = self.flux_Qout_m[0]
             Discharge[i, 1] = self.flux_giuh_runoff_m[0] 
             Discharge[i, 2] = self.flux_nash_lateral_runoff_m[0]

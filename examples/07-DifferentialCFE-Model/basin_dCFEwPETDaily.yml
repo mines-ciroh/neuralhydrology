@@ -2,7 +2,7 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: TestdCFEDaily_run02177000_DynamicSpinUp20epoch
+experiment_name: TestdCFEDaily_run02177000_CalibratedSpinUp16epoch
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin02177000.txt
@@ -31,7 +31,7 @@ device: cpu
 # --- Validation configuration ---------------------------------------------------------------------
 
 # specify after how many epochs to perform validation
-validate_every: 4
+validate_every: 2
 
 # specify how many random basins to use for validation
 validate_n_random_basins: 1
@@ -89,7 +89,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 20
+epochs: 16
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
