@@ -119,6 +119,7 @@ class BaseDataset(Dataset):
         # initialize class attributes that are filled in the data loading functions
         self._x_d = {}
         self._x_d_c = {}  # dynamic inputs of conceptual model
+        self._x_s_c = {}  # static inputs & calibration params of conceptual model
         self._x_h = {}
         self._x_f = {}
         self._x_s = {}
@@ -209,7 +210,11 @@ class BaseDataset(Dataset):
     def _load_attributes(self) -> pd.DataFrame:
         """This function has to return the attributes in a basin-indexed DataFrame."""
         raise NotImplementedError
-
+    
+    def _load_conceptual_params(self) -> pd.DataFrame:
+        """This function has to return the conceptual parameters in a basin-indexed DataFrame."""
+        raise NotImplementedError
+    
     def _create_id_to_int(self):
         self.id_to_int = {str(b): i for i, b in enumerate(np.random.permutation(self.basins))}
 
