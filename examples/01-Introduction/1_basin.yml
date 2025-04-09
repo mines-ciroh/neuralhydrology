@@ -17,7 +17,7 @@ test_start_date: "01/10/1989"
 test_end_date: "30/09/1999"
 
 # which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
-device: cuda:0
+device: mps
 
 # --- Validation configuration ---------------------------------------------------------------------
 
@@ -108,8 +108,8 @@ save_weights_every: 1
 dataset: camels_us
 
 # Path to data set root
-data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
-
+#data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
+data_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
 # can be either a list of forcings or a single forcing product
 forcings:
