@@ -1,10 +1,8 @@
 import logging
-import pickle
 import random
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
@@ -64,10 +62,14 @@ class BaseTrainer(object):
         LOGGER.info(f"### Folder structure created at {self.cfg.run_dir}")
 
         if self.cfg.is_continue_training:
-            LOGGER.info(f"### Continue training of run stored in {self.cfg.base_run_dir}")
+            LOGGER.info(
+                f"### Continue training of run stored in {self.cfg.base_run_dir}"
+            )
 
         if self.cfg.is_finetuning:
-            LOGGER.info(f"### Start finetuning with pretrained model stored in {self.cfg.base_run_dir}")
+            LOGGER.info(
+                f"### Start finetuning with pretrained model stored in {self.cfg.base_run_dir}"
+            )
 
         LOGGER.info(f"### Run configurations for {self.cfg.experiment_name}")
         for key, val in self.cfg.as_dict().items():
@@ -77,7 +79,9 @@ class BaseTrainer(object):
         self._set_device()
 
     def _get_dataset(self) -> BaseDataset:
-        return get_dataset(cfg=self.cfg, period="train", is_train=True, scaler=self._scaler)
+        return get_dataset(
+            cfg=self.cfg, period="train", is_train=True, scaler=self._scaler
+        )
 
     def _get_model(self) -> torch.nn.Module:
         return get_model(cfg=self.cfg)
@@ -92,14 +96,21 @@ class BaseTrainer(object):
         self.loss_obj.set_regularization_terms(get_regularization_obj(cfg=self.cfg))
 
     def _get_tester(self) -> BaseTester:
-        return get_tester(cfg=self.cfg, run_dir=self.cfg.run_dir, period="validation", init_model=False)
+        return get_tester(
+            cfg=self.cfg,
+            run_dir=self.cfg.run_dir,
+            period="validation",
+            init_model=False,
+        )
 
     def _get_data_loader(self, ds: BaseDataset) -> torch.utils.data.DataLoader:
-        return DataLoader(ds,
-                          batch_size=self.cfg.batch_size,
-                          shuffle=True,
-                          num_workers=self.cfg.num_workers,
-                          collate_fn=ds.collate_fn)
+        return DataLoader(
+            ds,
+            batch_size=self.cfg.batch_size,
+            shuffle=True,
+            num_workers=self.cfg.num_workers,
+            collate_fn=ds.collate_fn,
+        )
 
     def _freeze_model_parts(self):
         # freeze all model weights
@@ -130,7 +141,9 @@ class BaseTrainer(object):
                 else:
                     unresolved_modules.append(module_group)
         if unresolved_modules:
-            LOGGER.warning(f"Could not resolve the following module parts for finetuning: {unresolved_modules}")
+            LOGGER.warning(
+                f"Could not resolve the following module parts for finetuning: {unresolved_modules}"
+            )
 
     def initialize_training(self):
         """Initialize the training class.
@@ -152,12 +165,18 @@ class BaseTrainer(object):
         self.model = self._get_model().to(self.device)
         if self.cfg.checkpoint_path is not None:
             LOGGER.info(f"Starting training from Checkpoint {self.cfg.checkpoint_path}")
-            self.model.load_state_dict(torch.load(str(self.cfg.checkpoint_path), map_location=self.device))
+            self.model.load_state_dict(
+                torch.load(str(self.cfg.checkpoint_path), map_location=self.device)
+            )
         elif self.cfg.checkpoint_path is None and self.cfg.is_finetuning:
             # the default for finetuning is the last model state
-            checkpoint_path = [x for x in sorted(list(self.cfg.base_run_dir.glob('model_epoch*.pt')))][-1]
+            checkpoint_path = [
+                x for x in sorted(list(self.cfg.base_run_dir.glob("model_epoch*.pt")))
+            ][-1]
             LOGGER.info(f"Starting training from checkpoint {checkpoint_path}")
-            self.model.load_state_dict(torch.load(str(checkpoint_path), map_location=self.device))
+            self.model.load_state_dict(
+                torch.load(str(checkpoint_path), map_location=self.device)
+            )
 
         # Freeze model parts from pre-trained model.
         if self.cfg.is_finetuning:
@@ -186,18 +205,26 @@ class BaseTrainer(object):
             if self.cfg.validate_n_random_basins < 1:
                 warn_msg = [
                     f"Validation set to validate every {self.cfg.validate_every} epoch(s), but ",
-                    "'validate_n_random_basins' not set or set to zero. Will validate on the entire validation set."
+                    "'validate_n_random_basins' not set or set to zero. Will validate on the entire validation set.",
                 ]
                 LOGGER.warning("".join(warn_msg))
                 self.cfg.validate_n_random_basins = self.cfg.number_of_basins
             self.validator = self._get_tester()
 
         if self.cfg.target_noise_std is not None:
-            self.noise_sampler_y = torch.distributions.Normal(loc=0, scale=self.cfg.target_noise_std)
+            self.noise_sampler_y = torch.distributions.Normal(
+                loc=0, scale=self.cfg.target_noise_std
+            )
             self._target_mean = torch.from_numpy(
-                ds.scaler["xarray_feature_center"][self.cfg.target_variables].to_array().values).to(self.device)
+                ds.scaler["xarray_feature_center"][self.cfg.target_variables]
+                .to_array()
+                .values
+            ).to(self.device)
             self._target_std = torch.from_numpy(
-                ds.scaler["xarray_feature_scale"][self.cfg.target_variables].to_array().values).to(self.device)
+                ds.scaler["xarray_feature_scale"][self.cfg.target_variables]
+                .to_array()
+                .values
+            ).to(self.device)
 
     def train_and_validate(self):
         """Train and validate the model.
@@ -220,18 +247,24 @@ class BaseTrainer(object):
                 self._save_weights_and_optimizer(epoch)
 
             if (self.validator is not None) and (epoch % self.cfg.validate_every == 0):
-                self.validator.evaluate(epoch=epoch,
-                                        save_results=self.cfg.save_validation_results,
-                                        save_all_output=self.cfg.save_all_output,
-                                        metrics=self.cfg.metrics,
-                                        model=self.model,
-                                        experiment_logger=self.experiment_logger.valid())
+                self.validator.evaluate(
+                    epoch=epoch,
+                    save_results=self.cfg.save_validation_results,
+                    save_all_output=self.cfg.save_all_output,
+                    metrics=self.cfg.metrics,
+                    model=self.model,
+                    experiment_logger=self.experiment_logger.valid(),
+                )
 
                 valid_metrics = self.experiment_logger.summarise()
                 print_msg = f"Epoch {epoch} average validation loss: {valid_metrics['avg_total_loss']:.5f}"
                 if self.cfg.metrics:
-                    print_msg += f" -- Median validation metrics: "
-                    print_msg += ", ".join(f"{k}: {v:.5f}" for k, v in valid_metrics.items() if k != 'avg_total_loss')
+                    print_msg += " -- Median validation metrics: "
+                    print_msg += ", ".join(
+                        f"{k}: {v:.5f}"
+                        for k, v in valid_metrics.items()
+                        if k != "avg_total_loss"
+                    )
                     LOGGER.info(print_msg)
 
         # make sure to close tensorboard to avoid losing the last epoch
@@ -243,7 +276,9 @@ class BaseTrainer(object):
             if self.cfg.continue_from_epoch is not None:
                 epoch = self.cfg.continue_from_epoch
             else:
-                weight_path = [x for x in sorted(list(self.cfg.run_dir.glob('model_epoch*.pt')))][-1]
+                weight_path = [
+                    x for x in sorted(list(self.cfg.run_dir.glob("model_epoch*.pt")))
+                ][-1]
                 epoch = weight_path.name[-6:-3]
         else:
             epoch = 0
@@ -254,14 +289,18 @@ class BaseTrainer(object):
             epoch = f"{self.cfg.continue_from_epoch:03d}"
             weight_path = self.cfg.base_run_dir / f"model_epoch{epoch}.pt"
         else:
-            weight_path = [x for x in sorted(list(self.cfg.base_run_dir.glob('model_epoch*.pt')))][-1]
+            weight_path = [
+                x for x in sorted(list(self.cfg.base_run_dir.glob("model_epoch*.pt")))
+            ][-1]
             epoch = weight_path.name[-6:-3]
 
         optimizer_path = self.cfg.base_run_dir / f"optimizer_state_epoch{epoch}.pt"
 
         LOGGER.info(f"Continue training from epoch {int(epoch)}")
         self.model.load_state_dict(torch.load(weight_path, map_location=self.device))
-        self.optimizer.load_state_dict(torch.load(str(optimizer_path), map_location=self.device))
+        self.optimizer.load_state_dict(
+            torch.load(str(optimizer_path), map_location=self.device)
+        )
 
     def _save_weights_and_optimizer(self, epoch: int):
         weight_path = self.cfg.run_dir / f"model_epoch{epoch:03d}.pt"
@@ -275,31 +314,43 @@ class BaseTrainer(object):
         self.experiment_logger.train()
 
         # process bar handle
-        n_iter = min(self._max_updates_per_epoch, len(self.loader)) if self._max_updates_per_epoch is not None else None
-        pbar = tqdm(self.loader, file=sys.stdout, disable=self._disable_pbar, total=n_iter)
-        pbar.set_description(f'# Epoch {epoch}')
+        n_iter = (
+            min(self._max_updates_per_epoch, len(self.loader))
+            if self._max_updates_per_epoch is not None
+            else None
+        )
+        pbar = tqdm(
+            self.loader, file=sys.stdout, disable=self._disable_pbar, total=n_iter
+        )
+        pbar.set_description(f"# Epoch {epoch}")
 
         # Iterate in batches over training set
         nan_count = 0
         for i, data in enumerate(pbar):
-            if self._max_updates_per_epoch is not None and i >= self._max_updates_per_epoch:
+            if (
+                self._max_updates_per_epoch is not None
+                and i >= self._max_updates_per_epoch
+            ):
                 break
 
             for key in data.keys():
-                if not key.startswith('date'):
+                if not key.startswith("date") and not key.startswith("testing"):
                     data[key] = data[key].to(self.device)
 
             # apply possible pre-processing to the batch before the forward pass
+            print(f"The type of data is {type(data)}")
             data = self.model.pre_model_hook(data, is_train=True)
 
             # get predictions
             predictions = self.model(data)
 
             if self.noise_sampler_y is not None:
-                for key in filter(lambda k: 'y' in k, data.keys()):
+                for key in filter(lambda k: "y" in k, data.keys()):
                     noise = self.noise_sampler_y.sample(data[key].shape)
                     # make sure we add near-zero noise to originally near-zero targets
-                    data[key] += (data[key] + self._target_mean / self._target_std) * noise.to(self.device)
+                    data[key] += (
+                        data[key] + self._target_mean / self._target_std
+                    ) * noise.to(self.device)
 
             loss, all_losses = self.loss_obj(predictions, data)
 
@@ -307,8 +358,12 @@ class BaseTrainer(object):
             if torch.isnan(loss):
                 nan_count += 1
                 if nan_count > self._allow_subsequent_nan_losses:
-                    raise RuntimeError(f"Loss was NaN for {nan_count} times in a row. Stopped training.")
-                LOGGER.warning(f"Loss is Nan; ignoring step. (#{nan_count}/{self._allow_subsequent_nan_losses})")
+                    raise RuntimeError(
+                        f"Loss was NaN for {nan_count} times in a row. Stopped training."
+                    )
+                LOGGER.warning(
+                    f"Loss is Nan; ignoring step. (#{nan_count}/{self._allow_subsequent_nan_losses})"
+                )
             else:
                 nan_count = 0
 
@@ -319,14 +374,18 @@ class BaseTrainer(object):
                 loss.backward()
 
                 if self.cfg.clip_gradient_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.clip_gradient_norm)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), self.cfg.clip_gradient_norm
+                    )
 
                 # update weights
                 self.optimizer.step()
 
             pbar.set_postfix_str(f"Loss: {loss.item():.4f}")
 
-            self.experiment_logger.log_step(**{k: v.item() for k, v in all_losses.items()})
+            self.experiment_logger.log_step(
+                **{k: v.item() for k, v in all_losses.items()}
+            )
 
     def _set_random_seeds(self):
         if self.cfg.seed is None:
@@ -341,7 +400,7 @@ class BaseTrainer(object):
     def _set_device(self):
         if self.cfg.device is not None:
             if self.cfg.device.startswith("cuda"):
-                gpu_id = int(self.cfg.device.split(':')[-1])
+                gpu_id = int(self.cfg.device.split(":")[-1])
                 if gpu_id > torch.cuda.device_count():
                     raise RuntimeError(f"This machine does not have GPU #{gpu_id} ")
                 else:
@@ -369,7 +428,7 @@ class BaseTrainer(object):
             hour = f"{now.hour}".zfill(2)
             minute = f"{now.minute}".zfill(2)
             second = f"{now.second}".zfill(2)
-            run_name = f'{self.cfg.experiment_name}_{day}{month}_{hour}{minute}{second}'
+            run_name = f"{self.cfg.experiment_name}_{day}{month}_{hour}{minute}{second}"
 
             # if no directory for the runs is specified, a 'runs' folder will be created in the current working dir
             if self.cfg.run_dir is None:

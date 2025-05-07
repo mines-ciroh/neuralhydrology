@@ -52,13 +52,12 @@ class dCFE(BaseConceptualModel):
         self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(
             cfg=cfg, device=cfg.device
         )
-        # TODO: for basin_id in basin_id_list: # Get basin_list from config.
-        #         self.all_basinCharacteristics[basin_id] = get_dcfe_params(basin_id, device=cfg.device)
-        #
 
     def forward(
         self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor
-    ) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
+    ) -> Dict[
+        str, Union[torch.Tensor, Dict[str, torch.Tensor]]
+    ]:  # TODO: this will now take additional_features as an input.
         """Perform a forward pass in the hybrid-dCFE model.
 
         Parameters
@@ -94,17 +93,8 @@ class dCFE(BaseConceptualModel):
             self.temp_basinCharacteristics, batch_size=self.batch_size
         )
 
-        # TODO: Proposed fetch dcfe params for this batch
-        # for key in self.all_soil_params.keys():
-        #      attribute_list = []
-        #      for basin_id in batch_basin_ids:
-        #          attribute_list.append(self.all_soil_params[key][basin_id])
-        #      self.soil_params[key] = torch.stack(attribute_list, dim=0) # check that torch.stack turns list into troch tensor.
-
-        # for idx, basin_id in enumerate(batch_basin_ids):
-        #      self.soil_params{param_name} =
-        #     self.soil_params[idx,:] = self.all_soil_params[basin_id]
-        # This will populate self.soil_params with soil_params for all basins in this batch.
+        # TODO: will pass additional_features from data set to the forward pass.
+        # Will need to unpack this here.
 
         # get model params thru baseconceptualmodel.py's function,
         # this ensure that the output from NN is within the correct range, built into NH
