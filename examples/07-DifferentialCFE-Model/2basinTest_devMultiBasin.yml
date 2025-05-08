@@ -2,12 +2,12 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: 5Epoch_SingleBasin_Consistency_Exp1
+experiment_name: DevMultiBasin_Test
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 1_basin02177000.txt
-validation_basin_file: 1_basin02177000.txt
-test_basin_file: 1_basin02177000.txt
+train_basin_file: 2_basin.txt
+validation_basin_file: 2_basin.txt
+test_basin_file: 2_basin.txt
 basin_id: 02177000  # useful to list this separately.
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
