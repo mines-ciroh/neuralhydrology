@@ -72,7 +72,7 @@ class HybridModel(BaseModel):
 
         # Access the test feature in the data loader
         print(
-            f"Hello from HybridModel! The test feature is: {data['testing']} which is also the basin id"
+            f"Hello from HybridModel! The test feature is: {data['static_conceptual_parameters']} which is also the basin id"
         )
         # map lstm outputs to the dimension of the conceptual model´s parameters
         lstm_out = lstm_output[

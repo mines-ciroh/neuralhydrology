@@ -334,7 +334,7 @@ class BaseTrainer(object):
                 break
 
             for key in data.keys():
-                if not key.startswith("date") and not key.startswith("testing"):
+                if not key.startswith("date") and not key.startswith("static_conceptual_parameters"):
                     data[key] = data[key].to(self.device)
 
             # apply possible pre-processing to the batch before the forward pass

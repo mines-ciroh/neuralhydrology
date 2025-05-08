@@ -7,6 +7,19 @@ import torch
 
 
 def get_dcfe_params(cfg, device):
+    """This function reads the config file, grabs HydroShare params needed for CFE, and returns a basin-index dataframe 
+    with the parameters for each basin in the training list. 
+    
+    These parameters are a combo of default CFE parameters and calibrated parameters from the JSON files.
+
+    Args:
+        cfg: configuration
+        device: ??
+
+    Returns:
+        df: dataframe inexed by basin ids with 2 columns, soil_params and basinCharacteristics, which are each dicts of parameters
+    """
+    
     cfe_param_dir = cfg.param_dir
     calibrated_params_dir = cfg.calibrated_params_path
     # get all the basin ids as strings, now only from train_basin_file but in other code it was {period}_basin_file

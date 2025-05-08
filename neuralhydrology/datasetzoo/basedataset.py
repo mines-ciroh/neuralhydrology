@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from neuralhydrology.datautils import utils
 from neuralhydrology.utils import samplingutils
+from neuralhydrology.utils import dCFE_utils
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils.errors import NoEvaluationDataError, NoTrainDataError
 
@@ -205,8 +206,9 @@ class BaseDataset(Dataset):
                 hindcast_start_idx:global_end_idx
             ]
 
-            # Test item in the dictionary
-            sample["testing"] = basin
+            # grabbing "static_conceptual_params" item in the dictionary
+            # Since LHS is a panda df, need to use .loc
+            sample["static_conceptual_params"] = self.static_conceptual_params.loc[basin]
 
             # check for static inputs
             static_inputs = []
@@ -249,7 +251,9 @@ class BaseDataset(Dataset):
 
     def _load_conceptual_params(self) -> pd.DataFrame:
         """This function has to return the conceptual parameters in a basin-indexed DataFrame."""
-        raise NotImplementedError
+        
+        """Now this function loads the conceptual parameters from the dCFE_utils module, static_conceptual_params is basin-indexed df"""
+        self.static_conceptual_params = dCFE_utils.get_dcfe_params(self.cfg, 'mps')
 
     def _create_id_to_int(self):
         self.id_to_int = {
