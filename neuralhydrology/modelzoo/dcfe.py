@@ -49,12 +49,12 @@ class dCFE(BaseConceptualModel):
         super(dCFE, self).__init__(cfg=cfg)
 
         self.cfg = cfg
-        self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(
-            cfg=cfg, device=cfg.device
-        )
+        #self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(
+        #    cfg=cfg
+        #)
 
     def forward(
-        self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor
+        self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor, additional_features: torch.Tensor
     ) -> Dict[
         str, Union[torch.Tensor, Dict[str, torch.Tensor]]
     ]:  # TODO: this will now take additional_features as an input.
@@ -85,17 +85,19 @@ class dCFE(BaseConceptualModel):
         """
 
         # Fetch dcfe params
-        self.batch_size = x_conceptual.shape[0]
-        self.soil_params = expand_dcfe_params_along_batch_dim(
-            self.temp_soil_params, batch_size=self.batch_size
-        )
-        self.basinCharacteristics = expand_dcfe_params_along_batch_dim(
-            self.temp_basinCharacteristics, batch_size=self.batch_size
-        )
+        #self.batch_size = x_conceptual.shape[0]
+        #self.soil_params = expand_dcfe_params_along_batch_dim(
+        #    self.temp_soil_params, batch_size=self.batch_size
+       # )
+        #self.basinCharacteristics = expand_dcfe_params_along_batch_dim(
+        #    self.temp_basinCharacteristics, batch_size=self.batch_size
+        #)
 
         # TODO: will pass additional_features from data set to the forward pass.
         # Will need to unpack this here.
-
+        self.soil_params = additional_features["soil_params"]
+        self.basinCharacteristics = additional_features["basinCharacteristics"]
+        
         # get model params thru baseconceptualmodel.py's function,
         # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
@@ -106,6 +108,7 @@ class dCFE(BaseConceptualModel):
         )
 
         # use basin params from HydroShare to initialize other constants
+        # additional_features
         calibration_soil_params = self.soil_params
         calibration_basinCharacteristics = self.basinCharacteristics
         self.initialize_basin_constants(x_conceptual)

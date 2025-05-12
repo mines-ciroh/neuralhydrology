@@ -70,7 +70,9 @@ class BaseDataset(Dataset):
         super(BaseDataset, self).__init__()
         self.cfg = cfg
         self.is_train = is_train
-
+        self._load_conceptual_params()
+        
+        
         if period not in ["train", "validation", "test"]:
             raise ValueError("'period' must be one of 'train', 'validation' or 'test' ")
         else:
@@ -253,7 +255,7 @@ class BaseDataset(Dataset):
         """This function has to return the conceptual parameters in a basin-indexed DataFrame."""
         
         """Now this function loads the conceptual parameters from the dCFE_utils module, static_conceptual_params is basin-indexed df"""
-        self.static_conceptual_params = dCFE_utils.get_dcfe_params(self.cfg, 'mps')
+        self.static_conceptual_params = dCFE_utils.get_dcfe_params(self.cfg)
 
     def _create_id_to_int(self):
         self.id_to_int = {
@@ -1048,8 +1050,8 @@ class BaseDataset(Dataset):
                 batch[feature] = np.stack(
                     [sample[feature] for sample in samples], axis=0
                 )
-            elif feature == "testing":
-                # Testing feature is stored as a string, which we maintain as a string.
+            elif feature == "static_conceptual_parameters":
+                # static conceptual feature is stored as a string, which we maintain as a string.
                 batch[feature] = [sample[feature] for sample in samples]
             else:
                 # Everything else is a torch.Tensor

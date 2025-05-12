@@ -81,11 +81,20 @@ class HybridModel(BaseModel):
         lstm_out = self.linear(lstm_out)
 
         # get predictions
-        # TODO: Add data.additional_features as an input to self.conceptual_model
-        pred = self.conceptual_model(
+        if self.cfg.conceptual_model.lower() == "dcfe":
+            # dCFE only
+            pred = self.conceptual_model(
             x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
             lstm_out=lstm_out,
-        )
+            addtional_features=data["static_conceptual_parameters"]
+            )
+        else:
+            pred = self.conceptual_model(
+            x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
+            lstm_out=lstm_out,
+            )
+            
+        # TODO: Add data.additional_features as an input to self.conceptual_model. Done?
 
         return pred
 

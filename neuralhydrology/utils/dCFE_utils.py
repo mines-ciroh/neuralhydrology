@@ -6,7 +6,7 @@ from neuralhydrology.datautils import utils
 import torch
 
 
-def get_dcfe_params(cfg, device):
+def get_dcfe_params(cfg):
     """This function reads the config file, grabs HydroShare params needed for CFE, and returns a basin-index dataframe 
     with the parameters for each basin in the training list. 
     
@@ -48,47 +48,47 @@ def get_dcfe_params(cfg, device):
                 matches[match[0]] = [float(x) for x in match[1].split(",")]
         soil_params = {
             "depth": torch.tensor(
-                matches["soil_params.depth"], device=device, dtype=torch.float32
+                matches["soil_params.depth"],   dtype=torch.float32
             ),
             "bb": torch.tensor(
-                matches["soil_params.b"], device=device, dtype=torch.float32
+                matches["soil_params.b"],   dtype=torch.float32
             ),
             "satdk": torch.tensor(
-                matches["soil_params.satdk"], device=device, dtype=torch.float32
+                matches["soil_params.satdk"],   dtype=torch.float32
             ),
             "satpsi": torch.tensor(
-                matches["soil_params.satpsi"], device=device, dtype=torch.float32
+                matches["soil_params.satpsi"],   dtype=torch.float32
             ),
             "slop": torch.tensor(
-                matches["soil_params.slop"], device=device, dtype=torch.float32
+                matches["soil_params.slop"],   dtype=torch.float32
             ),
             "smcmax": torch.tensor(
-                matches["soil_params.smcmax"], device=device, dtype=torch.float32
+                matches["soil_params.smcmax"],   dtype=torch.float32
             ),
             "wltsmc": torch.tensor(
-                matches["soil_params.wltsmc"], device=device, dtype=torch.float32
+                matches["soil_params.wltsmc"],   dtype=torch.float32
             ),
-            "D": torch.tensor(2.0, device=device, dtype=torch.float32),
-            "mult": torch.tensor(1.0, device=device, dtype=torch.float32),
+            "D": torch.tensor(2.0,   dtype=torch.float32),
+            "mult": torch.tensor(1.0,   dtype=torch.float32),
         }
         basinCharacteristics = {
-            "catchment_area_km2": torch.tensor(111.11, device=device, dtype=torch.float32),
-            "refkdt": torch.tensor(matches["refkdt"], device=device, dtype=torch.float32),
+            "catchment_area_km2": torch.tensor(111.11,   dtype=torch.float32),
+            "refkdt": torch.tensor(matches["refkdt"],   dtype=torch.float32),
             "max_gw_storage": torch.tensor(
-                matches["max_gw_storage"], device=device, dtype=torch.float32
+                matches["max_gw_storage"],   dtype=torch.float32
             ),
-            "expon": torch.tensor(matches["expon"], device=device, dtype=torch.float32),
-            "Cgw": torch.tensor(matches["Cgw"], device=device, dtype=torch.float32),
+            "expon": torch.tensor(matches["expon"],   dtype=torch.float32),
+            "Cgw": torch.tensor(matches["Cgw"],   dtype=torch.float32),
             "alpha_fc": torch.tensor(
-                matches["alpha_fc"], device=device, dtype=torch.float32
+                matches["alpha_fc"],   dtype=torch.float32
             ),
-            "K_nash": torch.tensor(matches["K_nash"], device=device, dtype=torch.float32),
-            "K_lf": torch.tensor(matches["K_lf"], device=device, dtype=torch.float32),
+            "K_nash": torch.tensor(matches["K_nash"],   dtype=torch.float32),
+            "K_lf": torch.tensor(matches["K_lf"],   dtype=torch.float32),
             "nash_storage": torch.tensor(
-                matches["nash_storage"], device=device, dtype=torch.float32
+                matches["nash_storage"],   dtype=torch.float32
             ),
             "giuh_ordinates": torch.tensor(
-                matches["giuh_ordinates"], device=device, dtype=torch.float32
+                matches["giuh_ordinates"],   dtype=torch.float32
             ),
         }
 
@@ -104,54 +104,45 @@ def get_dcfe_params(cfg, device):
                 # Update the parameters in soil_params and basinCharacteristics
                 soil_params["bb"] = torch.tensor(
                     best_params.get("bb", soil_params["bb"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 soil_params["smcmax"] = torch.tensor(
                     best_params.get("smcmax", soil_params["smcmax"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 soil_params["satdk"] = torch.tensor(
                     best_params.get("satdk", soil_params["satdk"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 soil_params["slop"] = torch.tensor(
                     best_params.get("slop", soil_params["slop"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 basinCharacteristics["max_gw_storage"] = torch.tensor(
                     best_params.get(
                         "max_gw_storage", basinCharacteristics["max_gw_storage"].item()
                     ),
-                    device=device,
                     dtype=torch.float32,
                 )
                 basinCharacteristics["expon"] = torch.tensor(
                     best_params.get("expon", basinCharacteristics["expon"].item()),
-                    device=device,
+
                     dtype=torch.float32,
                 )
                 basinCharacteristics["Cgw"] = torch.tensor(
                     best_params.get("Cgw", basinCharacteristics["Cgw"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 basinCharacteristics["K_lf"] = torch.tensor(
                     best_params.get("K_lf", basinCharacteristics["K_lf"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 basinCharacteristics["K_nash"] = torch.tensor(
                     best_params.get("K_nash", basinCharacteristics["K_nash"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
                 basinCharacteristics["refkdt"] = torch.tensor(
                     best_params.get("scheme", basinCharacteristics["refkdt"].item()),
-                    device=device,
                     dtype=torch.float32,
                 )
         df.at[basin_id, "soil_params"] = soil_params
