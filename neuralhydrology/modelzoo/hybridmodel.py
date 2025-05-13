@@ -72,7 +72,7 @@ class HybridModel(BaseModel):
 
         # Access the test feature in the data loader
         print(
-            f"Hello from HybridModel! The test feature is: {data['static_conceptual_parameters']} which is also the basin id"
+            f"Hello from HybridModel! The test feature is: {data['static_conceptual_params']} which is also the basin id"
         )
         # map lstm outputs to the dimension of the conceptual model´s parameters
         lstm_out = lstm_output[
@@ -86,7 +86,7 @@ class HybridModel(BaseModel):
             pred = self.conceptual_model(
             x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
             lstm_out=lstm_out,
-            addtional_features=data["static_conceptual_parameters"]
+            additional_features=data["static_conceptual_params"]
             )
         else:
             pred = self.conceptual_model(

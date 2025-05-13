@@ -1050,7 +1050,7 @@ class BaseDataset(Dataset):
                 batch[feature] = np.stack(
                     [sample[feature] for sample in samples], axis=0
                 )
-            elif feature == "static_conceptual_parameters":
+            elif feature == "static_conceptual_params":
                 # static conceptual feature is stored as a string, which we maintain as a string.
                 batch[feature] = [sample[feature] for sample in samples]
             else:
