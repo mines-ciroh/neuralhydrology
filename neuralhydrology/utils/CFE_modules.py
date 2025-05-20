@@ -245,8 +245,7 @@ def get_and_calculate_input_rainfall_and_ET(
     conceptual_forcing_timestep: torch.Tensor,
     flux: Dict[str, torch.Tensor],
     constants: Dict[str, Union[int, float, Dict, torch.Tensor]],
-    hourly: bool,
-    TshirtTest: bool = False
+    hourly: bool
     ) -> Dict[str, torch.Tensor]:
     
     """Module to get and calculate the input rainfall and ET for the CFE model at every timestep
@@ -278,43 +277,32 @@ def get_and_calculate_input_rainfall_and_ET(
             'potential_et_m_per_timestep': potential ET in m/timestep
             'reduced_potential_et_m_per_timestep': reduced potential ET in m/timestep
     """
-    if TshirtTest:
-        flux['timestep_rainfall_input_m'] = conceptual_forcing_timestep[:, 0] * constants['time']['step_size']
-    else:
-        expected_feats = 3 if hourly else 4
-        if conceptual_forcing_timestep.shape[1] != expected_feats:
-            raise ValueError(
-                f"Expected {expected_feats} features for {'hourly' if hourly else 'daily'} data, "
-                f"but got {conceptual_forcing_timestep.shape[1]}."
-            )
-        # convert and store rainfall mm/timestep to m/timestep
-        flux['timestep_rainfall_input_m'] = conceptual_forcing_timestep[:, 0] / 1000.0    
+    expected_feats = 3 if hourly else 4
+    if conceptual_forcing_timestep.shape[1] != expected_feats:
+        raise ValueError(
+            f"Expected {expected_feats} features for {'hourly' if hourly else 'daily'} data, "
+            f"but got {conceptual_forcing_timestep.shape[1]}."
+        )
+    # convert and store rainfall mm/timestep to m/timestep
+    flux['timestep_rainfall_input_m'] = conceptual_forcing_timestep[:, 0] / 1000.0    
     
-    if TshirtTest:
-        # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016 "https://github.com/pyet-org/pyet/blob/master/pyet/radiation.py"
-        mean_temp = conceptual_forcing_timestep[:,1] - 273.15 
+    # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016 "https://github.com/pyet-org/pyet/blob/master/pyet/radiation.py"
+    if hourly: # hourly scheme
+        mean_temp = conceptual_forcing_timestep[:,1]
+        lambd = 2.501 - 0.002361 * mean_temp # using mean temp
+        shortRad = conceptual_forcing_timestep[:,2]*constants['time']['step_size']/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 hr]
+        pet_m_per_timestep_calc = (0.025 * shortRad * (conceptual_forcing_timestep[:,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
+        pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
+        flux['potential_et_m_per_timestep'] = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
+    else: # daily scheme
+        Tmin = conceptual_forcing_timestep[:, 1]
+        Tmax = conceptual_forcing_timestep[:, 2]
+        mean_temp = (Tmin + Tmax) / 2.0
         lambd = 2.501 - 0.002361 * mean_temp
-        shortRad = conceptual_forcing_timestep[:,2] * constants['time']['step_size']/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 day]
+        shortRad = conceptual_forcing_timestep[:, 3] * constants['time']['step_size'] / 1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 day]
         pet_m_per_timestep_calc = (0.025 * shortRad * (mean_temp - (-3.0))/lambd)/1000 # convert pet [mm/day] to [m/day]
         pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
         flux['potential_et_m_per_timestep'] = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
-    else:
-        # calculate PET from shortwave rad and mean temp using jensen_evaporation_2016 "https://github.com/pyet-org/pyet/blob/master/pyet/radiation.py"
-        if hourly: # hourly scheme
-            lambd = 2.501 - 0.002361 * conceptual_forcing_timestep[:,1] # using mean temp
-            shortRad = conceptual_forcing_timestep[:,2]*3600/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 hr]
-            pet_m_per_timestep_calc = (0.025 * shortRad * (conceptual_forcing_timestep[:,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
-            pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
-            flux['potential_et_m_per_timestep'] = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
-        else: # daily scheme
-            Tmin = conceptual_forcing_timestep[:, 1]
-            Tmax = conceptual_forcing_timestep[:, 2]
-            mean_temp = (Tmin + Tmax) / 2.0
-            lambd = 2.501 - 0.002361 * mean_temp
-            shortRad = conceptual_forcing_timestep[:, 3] * constants['time']['step_size'] / 1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 day]
-            pet_m_per_timestep_calc = (0.025 * shortRad * (mean_temp - (-3.0))/lambd)/1000 # convert pet [mm/day] to [m/day]
-            pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
-            flux['potential_et_m_per_timestep'] = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
     
     flux['reduced_potential_et_m_per_timestep'] = flux['potential_et_m_per_timestep'].clone()
     
@@ -1064,8 +1052,7 @@ def timestep_CFE_new(
     soil_reservoir: Dict[str, torch.Tensor],
     routing_info: Dict[str, torch.Tensor],
     flux: Dict[str, torch.Tensor],
-    hourly: bool = False,
-    TshirtTest: bool = False
+    hourly: bool = False
     ):
     
     # grab LSTM parameters, adapt them into the CFE params & reservoirs
@@ -1089,8 +1076,7 @@ def timestep_CFE_new(
         conceptual_forcing_timestep= x_conceptual_timestep,
         flux= flux,
         constants= constants,
-        hourly= hourly,
-        TshirtTest= TshirtTest
+        hourly= hourly
         )
     
     # calculate evaporation
