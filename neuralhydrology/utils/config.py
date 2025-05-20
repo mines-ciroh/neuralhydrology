@@ -856,13 +856,7 @@ class Config(object):
     def validation_start_date(self) -> pd.Timestamp:
         return self._get_value_verbose("validation_start_date")
     
-    @property
-    def param_dir(self) -> Path:
-        return self._cfg.get("param_dir", None)
-
-    @property
-    def basin_id(self) -> str:
-        return self._cfg["basin_id"]
+    
 
     @property
     def verbose(self) -> int:
@@ -878,6 +872,15 @@ class Config(object):
         """
         return self._cfg.get("verbose", 1)
 
+    # new for dCFE
+    @property
+    def param_dir(self) -> Path:
+        return self._cfg.get("param_dir", None)
+
+    @property
+    def basin_id(self) -> str:
+        return self._cfg["basin_id"]
+    
     @property
     def calibrated_params_path(self) -> Path:
         return self._cfg.get("calibrated_params_path", None)
@@ -885,6 +888,15 @@ class Config(object):
     @property
     def spin_up(self) -> int:
         return self._cfg.get("spin_up", 0)
+    
+    @property
+    def dcfe_soil_scheme(self) -> str:
+        return self._cfg.get("dcfe_soil_scheme", "classic")
+    
+    @property
+    def dcfe_partition_scheme(self) -> str:
+        return self._cfg.get("dcfe_partition_scheme", "Schaake")
+    # end of new for dCFE
 
     def _get_embedding_spec(self, embedding_spec: dict) -> dict:
         if isinstance(embedding_spec, bool) and embedding_spec:  #

@@ -6,6 +6,7 @@ from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils.dCFE_utils import get_dcfe_params, expand_dcfe_params_along_batch_dim
 from pathlib import Path
+import neuralhydrology.utils.CFE_modules as module
 
 # packages from cfe.py
 #import time
@@ -87,7 +88,8 @@ class dCFE(BaseConceptualModel):
         # get model params thru baseconceptualmodel.py's function, 
         # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
-
+        # change this to dynamic params later
+        
         # initialize structures to store the information
         states, out = self._initialize_information(conceptual_inputs=x_conceptual, lstm_out=lstm_out)
         
@@ -212,7 +214,133 @@ class dCFE(BaseConceptualModel):
                 'K_nash': [0, 1], # Nash cascade discharge coefficient
                 'satpsi': [0.05, 0.95]
                 } 
+    
+    def timestep_CFE_new(
+        self, 
+        x_conceptual_timestep: torch.Tensor, 
+        cfe_params: Dict[str, torch.Tensor],
+        timestep_parameters: Dict[str, torch.Tensor],
+        constants: Dict[str, torch.Tensor],
+        gw_reservoir: Dict[str, torch.Tensor],
+        soil_reservoir: Dict[str, torch.Tensor],
+        routing_info: Dict[str, torch.Tensor],
+        flux: Dict[str, torch.Tensor],
+        hourly: bool = False,
+        TshirtTest: bool = False
+        ):
         
+        # grab LSTM parameters, adapt them into the CFE params & reservoirs
+        cfe_params, gw_reservoir, soil_reservoir = module.timestep_basin_constants(
+            conceptual_forcing_timestep = x_conceptual_timestep, 
+            gw_reservoir = gw_reservoir,
+            soil_reservoir = soil_reservoir,
+            cfe_params = cfe_params,
+            constants = constants,
+            timestep_params = timestep_parameters
+            )
+        
+        # initialize fluxes
+        flux = module.initialize_flux_timestep(
+            conceptual_forcing_timestep= x_conceptual_timestep,
+            flux= flux
+            )
+        
+        # calculate pet and get rainfall
+        flux = module.get_and_calculate_input_rainfall_and_ET(
+            conceptual_forcing_timestep= x_conceptual_timestep,
+            flux= flux,
+            constants= constants,
+            hourly= hourly,
+            TshirtTest=TshirtTest
+            )
+        
+        # calculate evaporation
+        # from rain
+        flux = module.calculate_evaporation_from_rainfall(
+            flux= flux
+            )
+        # from soil
+        flux, soil_reservoir = module.calculate_evaporation_from_soil(
+            flux= flux,
+            constants= constants,
+            soil_reservoir= soil_reservoir
+            )
+        
+        # infiltration partitioning
+        if not constants['cfe_scheme']['partition'] in ["Schaake", "Xinanjiang"]:
+            raise NotImplementedError(f"Partition scheme '{constants['cfe_scheme']['partition']}' is not implemented. "
+                              "Supported: ['Schaake', 'Xinanjiang']. Change in dcfe_partition_scheme in config.")
+        elif constants['cfe_scheme']['partition'] == "Schaake":
+            flux, soil_reservoir = module.run_Schaake_subroutine(
+                flux= flux,
+                constants= constants,
+                cfe_params= cfe_params,
+                soil_reservoir= soil_reservoir
+                )
+        elif constants['cfe_scheme']['partition'] == "Xinanjiang":
+            raise NotImplementedError(" Xinanjiang parition shceme is coded but not tested, choose different scheme in config's dcfe_partition_scheme.")
+        
+        flux, soil_reservoir = module.adjust_and_track_runoff_infiltration(
+            flux= flux,
+            soil_reservoir= soil_reservoir
+            )
+        
+        # soil moisture reservoir
+        if not constants['cfe_scheme']['soil'] in ["classic", "ode"]:
+            raise NotImplementedError(f"Soil scheme '{constants['cfe_scheme']['soil']}' is not implemented. "
+                              "Supported: ['classic', 'ode']. Change in dcfe_soil_scheme in config.")
+        elif constants['cfe_scheme']['soil'] == "classic":
+            flux, soil_reservoir = module.run_classic_soil_moisture_subroutine(
+                flux= flux,
+                soil_reservoir= soil_reservoir
+            )
+        elif constants['cfe_scheme']['soil'] == "ode":
+            raise NotImplementedError("ODE mode is not in NH-dCFE, change in config's dcfe_soil_scheme.")
+        
+        flux, soil_reservoir = module.adjust_from_soil_outflux(
+            flux= flux,
+            constants= constants,
+            soil_reservoir= soil_reservoir
+            )
+        
+        # gw reservoir processes
+        flux, gw_reservoir = module.percolation_and_lateral_flow(
+            flux= flux,
+            gw_reservoir= gw_reservoir
+            )
+        
+        flux, gw_reservoir = module.calculate_gw_reservoir_flux(
+            timestep_conceptual_forcing= x_conceptual_timestep,
+            flux= flux,
+            cfe_params= cfe_params,
+            gw_reservoir= gw_reservoir
+            )
+        
+        # surface runoff routing
+        flux, routing_info = module.calculate_convolutional_integral_for_GIUH(
+            flux= flux,
+            routing_info= routing_info,
+            cfe_params= cfe_params
+            )
+        
+        # lateral flow routing
+        flux, routing_info, cfe_params = module.run_nash_cascade(
+            flux= flux,
+            routing_info= routing_info,
+            cfe_params= cfe_params
+            )
+        
+        # outflow in m
+        flux['Qout_m'] = flux['giuh_runoff_m'] + flux['nash_lateral_runoff_m'] + flux['from_deep_gw_to_chan_m']
+        
+        return cfe_params, gw_reservoir, soil_reservoir, routing_info, flux
+        
+        
+        
+        
+        
+        
+    
         
     #___________________Defining methods for CFE for each time step__________________
     def timestep_CFE(self, x_conceptual_timestep: torch.Tensor, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor, 
@@ -298,6 +426,8 @@ class dCFE(BaseConceptualModel):
         # calculate total runoff in meters
         self.flux_Qout_m = self.flux_giuh_runoff_m + self.flux_nash_lateral_runoff_m  + self.flux_from_deep_gw_to_chan_m
         #self.flux_Qout_m = self.gw_reservoir["storage_m"]
+        
+        
         
     def timestep_CFE_hourly(self, x_conceptual_timestep: torch.Tensor, satdk_timestep: torch.Tensor, cgw_timestep: torch.Tensor, 
                      bb_timestep: torch.Tensor, smcmax_timestep: torch.Tensor, slop_timestep: torch.Tensor,
