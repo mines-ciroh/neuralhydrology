@@ -291,7 +291,7 @@ def get_and_calculate_input_rainfall_and_ET(
         mean_temp = conceptual_forcing_timestep[:,1]
         lambd = 2.501 - 0.002361 * mean_temp # using mean temp
         shortRad = conceptual_forcing_timestep[:,2]*constants['time']['step_size']/1000000 # convert shortwave radiation [W/m^2] to [MJ/m^2 hr]
-        pet_m_per_timestep_calc = (0.025 * shortRad * (conceptual_forcing_timestep[:,1] - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
+        pet_m_per_timestep_calc = (0.025 * shortRad * (mean_temp - (-3.0))/lambd)/1000 # convert pet [mm/hr] to [m/hr]
         pet_m_per_timestep_mask = pet_m_per_timestep_calc < 0 # make mask for negative PET
         flux['potential_et_m_per_timestep'] = torch.where(pet_m_per_timestep_mask, 0, pet_m_per_timestep_calc) # clip negative PET to 0
     else: # daily scheme
@@ -347,13 +347,13 @@ def calculate_evaporation_from_rainfall(
             torch.zeros_like(rainfall),  # If P < PET, all P gets consumed as AET
             )
     
-    # storing results back to the flux
-    flux['actual_et_from_rain_m_per_timestep'][rainfall_mask] = actual_et_from_rain
-    flux['timestep_rainfall_input_m'][rainfall_mask] = reduced_rainfall # adjusting precip based on evaporation from rainfall
-    flux['reduced_potential_et_m_per_timestep'][rainfall_mask] = pet - actual_et_from_rain # adjusting pet based on evaporation from rainfall
+        # storing results back to the flux
+        flux['actual_et_from_rain_m_per_timestep'][rainfall_mask] = actual_et_from_rain
+        flux['timestep_rainfall_input_m'][rainfall_mask] = reduced_rainfall # adjusting precip based on evaporation from rainfall
+        flux['reduced_potential_et_m_per_timestep'][rainfall_mask] = pet - actual_et_from_rain # adjusting pet based on evaporation from rainfall
             
-    # And track_volume_from_rainfall
-    flux['actual_et_m_per_timestep'] = flux['actual_et_m_per_timestep'] + flux['actual_et_from_rain_m_per_timestep'] # actual_et_m_per_timestep not used anywhere
+        # And track_volume_from_rainfall
+        flux['actual_et_m_per_timestep'] = flux['actual_et_m_per_timestep'] + flux['actual_et_from_rain_m_per_timestep'] # actual_et_m_per_timestep not used anywhere
     
     return flux
 
@@ -886,10 +886,10 @@ def calculate_gw_reservoir_flux(
         gw_reservoir["storage_m"]
         )
     
-    flux['deep_gw_to_chan_m'] = flux['primary_flux_from_gw_m'] + flux['secondary_flux_from_gw_m'] # there's no 2nd flux since exponential
+    flux['from_deep_gw_to_chan_m'] = flux['primary_flux_from_gw_m'] + flux['secondary_flux_from_gw_m'] # there's no 2nd flux since exponential
     
     ### track_volume_from_gw
-    gw_reservoir["storage_m"] = gw_reservoir["storage_m"] - flux['deep_gw_to_chan_m'].clone()
+    gw_reservoir["storage_m"] = gw_reservoir["storage_m"] - flux['from_deep_gw_to_chan_m'].clone()
     
     return flux, gw_reservoir
 
