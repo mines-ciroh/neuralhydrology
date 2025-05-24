@@ -64,7 +64,17 @@ class HybridModel(BaseModel):
         lstm_out = self.linear(lstm_out)
         
         # get predictions
-        pred = self.conceptual_model(x_conceptual=data['x_d_c'][:, self.cfg.warmup_period:, :], lstm_out=lstm_out)
+        if self.cfg.conceptual_model.lower() == "dcfe":
+            # dCFE only
+            pred = self.conceptual_model(
+            x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
+            lstm_out=lstm_out
+            )
+        else:
+            pred = self.conceptual_model(
+            x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
+            lstm_out=lstm_out,
+            )
 
         return pred
 

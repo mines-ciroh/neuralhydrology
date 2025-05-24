@@ -80,116 +80,102 @@ class dCFE(BaseConceptualModel):
         """
     
         # Fetch dcfe params
-        self.batch_size = x_conceptual.shape[0] 
-        self.soil_params = expand_dcfe_params_along_batch_dim(self.temp_soil_params, batch_size=self.batch_size)
-        self.basinCharacteristics = expand_dcfe_params_along_batch_dim(self.temp_basinCharacteristics, batch_size=self.batch_size)
+        batch_size = x_conceptual.shape[0] 
+        self.soil_params = expand_dcfe_params_along_batch_dim(self.temp_soil_params, batch_size=batch_size)
+        self.basinCharacteristics = expand_dcfe_params_along_batch_dim(self.temp_basinCharacteristics, batch_size=batch_size)
     
-        
-        # get model params thru baseconceptualmodel.py's function, 
-        # this ensure that the output from NN is within the correct range, built into NH
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
-        # change this to dynamic params later
         
         # initialize structures to store the information
         states, out = self._initialize_information(conceptual_inputs=x_conceptual, lstm_out=lstm_out)
         
         # use basin params from HydroShare to initialize other constants
-        calibration_soil_params = self.soil_params
-        calibration_basinCharacteristics = self.basinCharacteristics
-        self.initialize_basin_constants(x_conceptual)
+        cfe_calibrated_params = {
+            'soil_params': self.soil_params,
+            'basinCharacteristics': self.basinCharacteristics
+            }
+        
+        timestep_spinup_params = {
+            'satdk': self.soil_params['satdk'],
+            'Cgw': self.basinCharacteristics['Cgw'],
+            'bb': self.soil_params['bb'],
+            'smcmax': self.soil_params['smcmax'],
+            'slop': self.soil_params['slop'],
+            'max_gw_storage': self.basinCharacteristics['max_gw_storage'],
+            'expon': self.basinCharacteristics['expon'],
+            'K_lf': self.basinCharacteristics['K_lf'],
+            'K_nash': self.basinCharacteristics['K_nash'],
+            'satpsi': self.soil_params['satpsi']
+            }
+       
+        constants, cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = module.initialize_basin_constants(
+            cfg = self.cfg,
+            conceptual_forcing = x_conceptual,
+            cfe_params = cfe_calibrated_params,
+            hourly= self.cfg.dcfe_hourly
+            )
         
         # Spin up for warm_up amount of time, do not track gradient
         with torch.no_grad():
            for j in range(0, (lstm_out.shape[1] - self.cfg.spin_up)):
-                # run the CFE model for the time step w/ Hydroshare params
-                # only grab first time index
-                self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:], 
-                               satdk_timestep = calibration_soil_params['satdk'],
-                               cgw_timestep = calibration_basinCharacteristics['Cgw'],
-                               bb_timestep = calibration_soil_params['bb'],
-                               smcmax_timestep = calibration_soil_params['smcmax'],
-                               slop_timestep = calibration_soil_params['slop'],
-                               max_gw_timestep = calibration_basinCharacteristics['max_gw_storage'],
-                               expon_timestep = calibration_basinCharacteristics['expon'],
-                               K_lf_timestep = calibration_basinCharacteristics['K_lf'],
-                               K_nash_timestep = calibration_basinCharacteristics['K_nash'],
-                               satpsi_timestep = calibration_soil_params['satpsi']
-                               )
+                # run the CFE model for the time step w/ Hydroshare Params
+                cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = module.timestep_CFE_new(
+                    x_conceptual_timestep   = x_conceptual[:, j, :],
+                    cfe_params              = cfe_params,
+                    timestep_parameters     = timestep_spinup_params,
+                    constants               = constants,
+                    gw_reservoir            = gw_reservoir,
+                    soil_reservoir          = soil_reservoir,
+                    routing_info            = routing_info,
+                    flux                    = flux,
+                    hourly                  = self.cfg.dcfe_hourly
+                    )
                 
-                ###### Dynamic spin-up #######
-                #self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:],
-                #                  satdk_timestep = parameters['satdk'][:,j],
-                #                  cgw_timestep = parameters['Cgw'][:,j],
-                #                  bb_timestep = parameters['bb'][:,j],
-                #                  smcmax_timestep = parameters['smcmax'][:,j],
-                #                  slop_timestep = parameters['slop'][:,j],
-                #                  max_gw_timestep = parameters['max_gw_storage'][:,j],
-                #                  expon_timestep = parameters['expon'][:,j],
-                #                  K_lf_timestep = parameters['K_lf'][:,j],
-                #                  K_nash_timestep = parameters['K_nash'][:,j]
-                #                  )
-                
-                ###### Average LSTM output spin-up #######
-                #spin_up_end = lstm_out.shape[1] - self.cfg.spin_up - 1
-                #self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,j,:],
-                #                   satdk_timestep = parameters['satdk'][:, :spin_up_end].mean(dim=1),
-                #                   cgw_timestep = parameters['Cgw'][:, :spin_up_end].mean(dim=1),
-                #                   bb_timestep = parameters['bb'][:, :spin_up_end].mean(dim=1),
-                #                   smcmax_timestep = parameters['smcmax'][:, :spin_up_end].mean(dim=1),
-                #                   slop_timestep = parameters['slop'][:, :spin_up_end].mean(dim=1),
-                #                   max_gw_timestep = parameters['max_gw_storage'][:, :spin_up_end].mean(dim=1),
-                #                   expon_timestep = parameters['expon'][:, :spin_up_end].mean(dim=1),
-                #                   K_lf_timestep = parameters['K_lf'][:, :spin_up_end].mean(dim=1),
-                #                   K_nash_timestep = parameters['K_nash'][:, :spin_up_end].mean(dim=1),
-                #                   satpsi_timestep = parameters['satpsi'][:, :spin_up_end].mean(dim=1)
-                #                   )
-                
-                out[:,j,0] = self.flux_Qout_m * 1000 # this will not be included for back prop due to predict_last_n
+                out[:,j,0] = flux['Qout_m'] * 1000 # this will not be included for back prop due to predict_last_n
                 # store resulting states, right now this doesn't do anything
-                states['gw_reservoir_storage_m'][:,j] = self.gw_reservoir['storage_m']
-                states['soil_reservoir_storage_m'][:,j] = self.soil_reservoir['storage_m']
-                states['first_nash_storage'][:,j] = self.basinCharacteristics['nash_storage'][:,0]
+                states['gw_reservoir_storage_m'][:,j] = gw_reservoir['storage_m']
+                states['soil_reservoir_storage_m'][:,j] = soil_reservoir['storage_m']
+                states['first_nash_storage'][:,j] = cfe_params['basinCharacteristics']['nash_storage'][:,0]
         
         torch.autograd.set_detect_anomaly(True)
         spin_up_start = self.cfg.spin_up
+        
         # Run model for prediction for each parameters
+        timestep_avg_params = {
+            'satdk': parameters['satdk'][:,spin_up_start:].mean(dim=1),
+            'Cgw': parameters['Cgw'][:,spin_up_start:].mean(dim=1),
+            'bb': parameters['bb'][:,spin_up_start:].mean(dim=1),
+            'smcmax': parameters['smcmax'][:,spin_up_start:].mean(dim=1),
+            'slop': parameters['slop'][:,spin_up_start:].mean(dim=1),
+            'max_gw_storage': parameters['max_gw_storage'][:,spin_up_start:].mean(dim=1),
+            'expon': parameters['expon'][:,spin_up_start:].mean(dim=1),
+            'K_lf': parameters['K_lf'][:,spin_up_start:].mean(dim=1),
+            'K_nash': parameters['K_nash'][:,spin_up_start:].mean(dim=1),
+            'satpsi': parameters['satpsi'][:,spin_up_start:].mean(dim=1)
+            }
+        
         for k in range(spin_up_start, lstm_out.shape[1]):
-            ##### run CFE for that time step, w/ time-varying params ######
-            self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,k,:] ,
-                              satdk_timestep = parameters['satdk'][:,k],
-                              cgw_timestep = parameters['Cgw'][:,k],
-                              bb_timestep = parameters['bb'][:,k],
-                              smcmax_timestep = parameters['smcmax'][:,k],
-                              slop_timestep = parameters['slop'][:,k],
-                              max_gw_timestep = parameters['max_gw_storage'][:,k],
-                              expon_timestep = parameters['expon'][:,k],
-                              K_lf_timestep = parameters['K_lf'][:,k],
-                              K_nash_timestep = parameters['K_nash'][:,k],
-                              satpsi_timestep = parameters['satpsi'][:,k]
-                              )
+            ##### run CFE for that time step, w/ avg params
             
-            ##### run CFE for that time step, w/ average of params after spin-up#####
-            """
-            self.timestep_CFE(x_conceptual_timestep = x_conceptual[:,k,:] ,
-                              satdk_timestep = parameters['satdk'][:,spin_up_start:].mean(dim=1),
-                              cgw_timestep = parameters['Cgw'][:,spin_up_start:].mean(dim=1),
-                              bb_timestep = parameters['bb'][:,spin_up_start:].mean(dim=1),
-                              smcmax_timestep = parameters['smcmax'][:,spin_up_start:].mean(dim=1),
-                              slop_timestep = parameters['slop'][:,spin_up_start:].mean(dim=1),
-                              max_gw_timestep = parameters['max_gw_storage'][:,spin_up_start:].mean(dim=1),
-                              expon_timestep = parameters['expon'][:,spin_up_start:].mean(dim=1),
-                              K_lf_timestep = parameters['K_lf'][:,spin_up_start:].mean(dim=1),
-                              K_nash_timestep = parameters['K_nash'][:,spin_up_start:].mean(dim=1),
-                              satpsi_timestep = parameters['satpsi'][:,spin_up_start:].mean(dim=1)
-                              )
-            """
+            cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = module.timestep_CFE_new(
+                x_conceptual_timestep   = x_conceptual[:, k, :],
+                cfe_params              = cfe_params,
+                timestep_parameters     = timestep_avg_params,
+                constants               = constants,
+                gw_reservoir            = gw_reservoir,
+                soil_reservoir          = soil_reservoir,
+                routing_info            = routing_info,
+                flux                    = flux,
+                hourly                  = self.cfg.dcfe_hourly
+                )
+            
             # store states
-            states['gw_reservoir_storage_m'][:,k] = self.gw_reservoir['storage_m']
-            states['soil_reservoir_storage_m'][:,k] = self.soil_reservoir['storage_m']
-            states['first_nash_storage'][:,k] = self.basinCharacteristics['nash_storage'][:,0]
+            states['gw_reservoir_storage_m'][:,k] = gw_reservoir['storage_m']
+            states['soil_reservoir_storage_m'][:,k] = soil_reservoir['storage_m']
+            states['first_nash_storage'][:,k] = cfe_params['basinCharacteristics']['nash_storage'][:,0]
             
             # store runoff for back-prop
-            out[:,k,0] = self.flux_Qout_m * 1000 #* self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
+            out[:,k,0] = flux['Qout_m'] * 1000 #* self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
             
         return {'y_hat': out, 'parameters': parameters, 'internal_states': states}
 

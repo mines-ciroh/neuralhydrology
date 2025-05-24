@@ -872,7 +872,7 @@ class Config(object):
         """
         return self._cfg.get("verbose", 1)
 
-    # new for dCFE
+    #_____new for dCFE_____
     @property
     def param_dir(self) -> Path:
         return self._cfg.get("param_dir", None)
@@ -880,6 +880,10 @@ class Config(object):
     @property
     def basin_id(self) -> str:
         return self._cfg["basin_id"]
+    
+    @property
+    def dcfe_hourly(self) -> bool:
+        return self._cfg.get("dcfe_hourly", False)
     
     @property
     def calibrated_params_path(self) -> Path:
@@ -896,7 +900,8 @@ class Config(object):
     @property
     def dcfe_partition_scheme(self) -> str:
         return self._cfg.get("dcfe_partition_scheme", "Schaake")
-    # end of new for dCFE
+    
+    #____end of new for dCFE____
 
     def _get_embedding_spec(self, embedding_spec: dict) -> dict:
         if isinstance(embedding_spec, bool) and embedding_spec:  #
