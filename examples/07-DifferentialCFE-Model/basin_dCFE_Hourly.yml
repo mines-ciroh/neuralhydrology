@@ -2,7 +2,7 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: TestdCFEDaily_run02177000_CalibratedSpinUp16epoch
+experiment_name: TestdCFEHourly_run02177000_multiBasinTest
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin02177000.txt
@@ -53,7 +53,7 @@ conceptual_model: dcfe
 # dcfe speicifc settings
 dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
 dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
-
+dcfe_hourly: True
 
 # prediction head [regression]. Define the head specific parameters below
 head: regression
@@ -101,7 +101,7 @@ clip_gradient_norm: 1
 
 # Defines which time steps are used to calculate the loss. Can't be larger than seq_length.
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a predict_last_n-value, else an int.
-predict_last_n: 365
+predict_last_n: 8760
 
 # Length of the input sequence
 seq_length: 17700 # must be predict_last_n + warmup_period + spin_up
@@ -128,7 +128,7 @@ save_weights_every: 1
 # --- Data configurations --------------------------------------------------------------------------
 
 # which data set to use [camels_us, camels_gb, global, hourly_camels_us]
-dataset: camels_us
+dataset: hourly_camels_us
 
 # Path to data set root
 #data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
