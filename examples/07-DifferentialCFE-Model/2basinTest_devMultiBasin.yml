@@ -8,7 +8,6 @@ experiment_name: DevMultiBasin_Test
 train_basin_file: 2_basin.txt
 validation_basin_file: 2_basin.txt
 test_basin_file: 2_basin.txt
-basin_id: 02177000  # useful to list this separately.
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
@@ -53,6 +52,7 @@ conceptual_model: dcfe
 # dcfe speicifc settings
 dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
 dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
+dcfe_hourly: False # Daily
 
 # prediction head [regression]. Define the head specific parameters below
 head: regression

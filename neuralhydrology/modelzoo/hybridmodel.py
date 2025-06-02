@@ -63,12 +63,18 @@ class HybridModel(BaseModel):
         lstm_out = lstm_output[:, self.cfg.warmup_period:, :] # remove warmup period from LSTM output
         lstm_out = self.linear(lstm_out)
         
+        # Access the test feature in the data loader
+        print(
+            f"Hello from HybridModel! The test feature is: {data['static_conceptual_params']}."
+        )
+        
         # get predictions
         if self.cfg.conceptual_model.lower() == "dcfe":
             # dCFE only
             pred = self.conceptual_model(
             x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
-            lstm_out=lstm_out
+            lstm_out=lstm_out,
+            additional_features = data["static_conceptual_params"]
             )
         else:
             pred = self.conceptual_model(
