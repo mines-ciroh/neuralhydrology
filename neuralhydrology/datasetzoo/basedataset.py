@@ -17,8 +17,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from neuralhydrology.datautils import utils
-from neuralhydrology.utils import samplingutils
-from neuralhydrology.utils import dCFE_utils
+from neuralhydrology.utils import dCFE_utils, samplingutils
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils.errors import NoEvaluationDataError, NoTrainDataError
 
@@ -71,8 +70,7 @@ class BaseDataset(Dataset):
         self.cfg = cfg
         self.is_train = is_train
         self._load_conceptual_params()
-        
-        
+
         if period not in ["train", "validation", "test"]:
             raise ValueError("'period' must be one of 'train', 'validation' or 'test' ")
         else:
@@ -210,7 +208,9 @@ class BaseDataset(Dataset):
 
             # grabbing "static_conceptual_params" item in the dictionary
             # Since LHS is a panda df, need to use .loc
-            sample["static_conceptual_params"] = self.static_conceptual_params.loc[basin]
+            sample["static_conceptual_params"] = self.static_conceptual_params.loc[
+                basin
+            ]
 
             # check for static inputs
             static_inputs = []
@@ -253,7 +253,7 @@ class BaseDataset(Dataset):
 
     def _load_conceptual_params(self) -> pd.DataFrame:
         """This function has to return the conceptual parameters in a basin-indexed DataFrame."""
-        
+
         """Now this function loads the conceptual parameters from the dCFE_utils module, static_conceptual_params is basin-indexed df"""
         self.static_conceptual_params = dCFE_utils.get_dcfe_params_test(self.cfg)
 
@@ -1052,7 +1052,7 @@ class BaseDataset(Dataset):
                 )
             elif feature == "static_conceptual_params":
                 # static conceptual feature is stored as a string, which we maintain as a string.
-                batch[feature] = [sample[feature] for sample in samples]
+                batch[feature] = torch.stack([sample[feature] for sample in samples])
             else:
                 # Everything else is a torch.Tensor
                 batch[feature] = torch.stack(
