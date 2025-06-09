@@ -207,7 +207,7 @@ class BaseDataset(Dataset):
             ]
 
             # grabbing "static_conceptual_params" item in the dictionary
-            # Since LHS is a panda df, need to use .loc
+            # Since RHS is a panda df, need to use .loc
             sample["static_conceptual_params"] = self.static_conceptual_params.loc[
                 basin
             ]
@@ -1052,7 +1052,8 @@ class BaseDataset(Dataset):
                 )
             elif feature == "static_conceptual_params":
                 # static conceptual feature is stored as a string, which we maintain as a string.
-                batch[feature] = torch.stack([sample[feature] for sample in samples])
+                batch[feature] = torch.stack([sample[feature] for sample in samples], dim = 0)
+                print(batch[feature])
             else:
                 # Everything else is a torch.Tensor
                 batch[feature] = torch.stack(

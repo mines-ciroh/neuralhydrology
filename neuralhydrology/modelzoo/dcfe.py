@@ -86,8 +86,30 @@ class dCFE(BaseConceptualModel):
     
         # Fetch dcfe params
         #batch_size = x_conceptual.shape[0] 
-        self.soil_params = additional_features['soil_params']
-        self.basinCharacteristics = additional_features['basinCharacteristics']
+        default_soil_params = soil_params = {
+            "depth": additional_features['depth'],
+            "bb": additional_features['bb'],
+            "satdk": additional_features['satdk'],
+            "satpsi": additional_features['satpsi'],
+            "slop": additional_features['slop'],
+            "smcmax": additional_features['smcmax'],
+            "wltsmc": additional_features['wltsmc'],
+            "D": additional_features['D'],
+            "mult": additional_features['mult'],
+            }
+        
+        default_basinCharacteristics = {
+            "catchment_area_km2": additional_features['catchment_area_km2'],
+            "refkdt": additional_features['refkdt'],
+            "max_gw_storage": additional_features['max_gw_storage'],
+            "expon": additional_features['expon'],
+            "Cgw": additional_features['Cgw'],
+            "alpha_fc": additional_features['alpha_fc'],
+            "K_nash": additional_features['K_nash'],
+            "K_lf": additional_features['K_lf'],
+            "nash_storage": additional_features['nash_storage'],
+            "giuh_ordinates": additional_features['giuh_ordinates'],
+            }
     
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
         
@@ -96,8 +118,8 @@ class dCFE(BaseConceptualModel):
         
         # use basin params from HydroShare to initialize other constants
         cfe_calibrated_params = {
-            'soil_params': self.soil_params,
-            'basinCharacteristics': self.basinCharacteristics
+            'soil_params': default_soil_params,
+            'basinCharacteristics': default_basinCharacteristics
             }
         
         timestep_spinup_params = {
