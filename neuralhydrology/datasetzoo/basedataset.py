@@ -1052,8 +1052,11 @@ class BaseDataset(Dataset):
                 )
             elif feature == "static_conceptual_params":
                 # static conceptual feature is stored as a string, which we maintain as a string.
-                batch[feature] = torch.stack([sample[feature] for sample in samples], dim = 0)
-                print(batch[feature])
+                    batch['depth'] = torch.stack([sample[feature]['depth'] for sample in samples], dim = 0)
+                    batch['bb'] = torch.stack([sample[feature]['bb'] for sample in samples], dim = 0)
+                    batch['nash_storage'] = torch.stack([sample[feature]['nash_storage'] for sample in samples], dim = 0)
+                    batch['giuh_ordinates'] = torch.vstack([sample[feature]['giuh_ordinates'] for sample in samples])
+                #batch['depth'] = torch.stack([sample[feature]['depth'] for sample in samples], dim = 0)
             else:
                 # Everything else is a torch.Tensor
                 batch[feature] = torch.stack(

@@ -334,7 +334,12 @@ class BaseTrainer(object):
                 break
 
             for key in data.keys():
+                print(data["static_conceptual_params"])
+                break
                 if not key.startswith("date"):
+                    if key.equals("static_conceptual_params"):
+                        temp = data[key]
+                        depth = temp['depth'] 
                     data[key] = data[key].to(self.device)
 
             # apply possible pre-processing to the batch before the forward pass

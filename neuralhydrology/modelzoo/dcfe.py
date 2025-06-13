@@ -86,7 +86,7 @@ class dCFE(BaseConceptualModel):
     
         # Fetch dcfe params
         #batch_size = x_conceptual.shape[0] 
-        default_soil_params = soil_params = {
+        default_soil_params  = {
             "depth": additional_features['depth'],
             "bb": additional_features['bb'],
             "satdk": additional_features['satdk'],
