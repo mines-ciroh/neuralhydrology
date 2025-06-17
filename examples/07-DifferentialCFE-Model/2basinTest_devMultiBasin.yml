@@ -132,10 +132,10 @@ seed: 123 # random seed for reproducibility
 dataset: camels_us
 
 # Path to data set root
-#data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
-#param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
-data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
-param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
+param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+#data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
+#param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs
 
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
