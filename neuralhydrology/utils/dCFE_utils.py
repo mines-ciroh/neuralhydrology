@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -328,3 +328,17 @@ def convert_static_conceptual_params_to_batch(
                 ]
             )
     return batched_static_conceptual_params
+
+
+def move_data_to_device(
+    data: Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]], device: torch.device
+) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
+    for key in data.keys():
+        if key == "static_conceptual_params":
+            # the value associated to 'static_conceptual_params' is a dictionary.
+            # Need to move each value in the dictionary to the device individually.
+            for static_conceptual_param_name in data[key].keys():
+                data[key][static_conceptual_param_name] = data[key][static_conceptual_param_name].to(device)
+        elif not key.startswith("date"):
+            data[key] = data[key].to(device)
+    return data

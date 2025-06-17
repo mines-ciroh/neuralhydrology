@@ -22,10 +22,6 @@ class dCFE(BaseConceptualModel):
     """
     This is an attempt to make a dCFE model based on
     https://github.com/NWC-CUAHSI-Summer-Institute/ngen-aridity/blob/main/Project%20Manuscript_LongForm.pdf
-
-
-    Last edited: by Ziyu, 11/05/2024
-
     General outline:
     Takes raw LSTM output, shape them within possible ranges of the Cgw and satdk parameters.
     Together with other basin-specific parameters and forcings (precip, and srad + tmean for pet)
@@ -79,8 +75,10 @@ class dCFE(BaseConceptualModel):
 
         # Fetch dcfe params
         # batch_size = x_conceptual.shape[0]
-        default_soil_params = {k: additional_features[k] for k in SOIL_KEYS}
-        default_basinCharacteristics = {k: additional_features[k] for k in BASIN_CHARACTERISTIC_KEYS}
+        # TODO: @Ziyu previously these were default_soil_params and default_basinCharacteristics.
+        # I think that this was a legacy name from earlier code. Could you confirm droppign the prefix "default_" is okay?
+        self.soil_params = {k: additional_features[k] for k in SOIL_KEYS}
+        self.basinCharacteristics = {k: additional_features[k] for k in BASIN_CHARACTERISTIC_KEYS}
 
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
 
@@ -88,8 +86,10 @@ class dCFE(BaseConceptualModel):
         states, out = self._initialize_information(conceptual_inputs=x_conceptual, lstm_out=lstm_out)
 
         # use basin params from HydroShare to initialize other constants
-        cfe_calibrated_params = {"soil_params": default_soil_params, "basinCharacteristics": default_basinCharacteristics}
+        # TODO: Changed the below from default_soil_params and default_basinCharacteristics to self.soil_params and self.basinCharacteristics.
+        cfe_calibrated_params = {"soil_params": self.soil_params, "basinCharacteristics": self.basinCharacteristics}
 
+        # TODO: replace the code below with a single function call.
         timestep_spinup_params = {
             "satdk": self.soil_params["satdk"],
             "Cgw": self.basinCharacteristics["Cgw"],
@@ -133,6 +133,7 @@ class dCFE(BaseConceptualModel):
         spin_up_start = self.cfg.spin_up
 
         # Run model for prediction for each parameters
+        # TODO: Is the code below necessary? If yes, can we replace it with a single function call or list comprehension?
         timestep_avg_params = {
             "satdk": parameters["satdk"][:, spin_up_start:].mean(dim=1),
             "Cgw": parameters["Cgw"][:, spin_up_start:].mean(dim=1),
@@ -174,6 +175,7 @@ class dCFE(BaseConceptualModel):
         return {"y_hat": out, "parameters": parameters, "internal_states": states}
 
     # ______________________defining states and parameter properties relavent to NH________________
+    # TODO: Move these to constants.py
     @property
     def initial_states(self):
         return {
