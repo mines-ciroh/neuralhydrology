@@ -334,12 +334,14 @@ class BaseTrainer(object):
                 break
 
             for key in data.keys():
-                print(data["static_conceptual_params"])
-                break
-                if not key.startswith("date"):
-                    if key.equals("static_conceptual_params"):
-                        temp = data[key]
-                        depth = temp['depth'] 
+                if key == "static_conceptual_params":
+                    # the value associated to 'static_conceptual_params' is a dictionary.
+                    # Need to move each value in the dictionary to the device individually.
+                    for static_conceptual_param_name in data[key].keys():
+                        data[key][static_conceptual_param_name] = data[key][
+                            static_conceptual_param_name
+                        ].to(self.device)
+                elif not key.startswith("date"):
                     data[key] = data[key].to(self.device)
 
             # apply possible pre-processing to the batch before the forward pass

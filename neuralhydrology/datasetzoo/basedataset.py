@@ -1051,27 +1051,10 @@ class BaseDataset(Dataset):
                     [sample[feature] for sample in samples], axis=0
                 )
             elif feature == "static_conceptual_params":
-                # static conceptual feature is stored as a string, which we maintain as a string.
-                    batch['depth'] = torch.stack([sample[feature]['depth'] for sample in samples], dim = 0)
-                    batch['bb'] = torch.stack([sample[feature]['bb'] for sample in samples], dim = 0)
-                    batch['satdk'] = torch.stack([sample[feature]['satdk'] for sample in samples], dim = 0)
-                    batch['satpsi'] = torch.stack([sample[feature]['satpsi'] for sample in samples], dim = 0)
-                    batch['slop'] = torch.stack([sample[feature]['slop'] for sample in samples], dim = 0)
-                    batch['smcmax'] = torch.stack([sample[feature]['smcmax'] for sample in samples], dim = 0)
-                    batch['wltsmc'] = torch.stack([sample[feature]['wltsmc'] for sample in samples], dim = 0)
-                    batch['D'] = torch.stack([sample[feature]['D'] for sample in samples], dim = 0)
-                    batch['mult'] = torch.stack([sample[feature]['mult'] for sample in samples], dim = 0)
-                    batch['catchment_area_km2'] = torch.stack([sample[feature]['catchment_area_km2'] for sample in samples], dim = 0)
-                    batch['refkdt'] = torch.stack([sample[feature]['refkdt'] for sample in samples], dim = 0)
-                    batch['max_gw_storage'] = torch.stack([sample[feature]['max_gw_storage'] for sample in samples], dim = 0)
-                    batch['expon'] = torch.stack([sample[feature]['expon'] for sample in samples], dim = 0)
-                    batch['Cgw'] = torch.stack([sample[feature]['Cgw'] for sample in samples], dim = 0)
-                    batch['alpha_fc'] = torch.stack([sample[feature]['alpha_fc'] for sample in samples], dim = 0)
-                    batch['K_nash'] = torch.stack([sample[feature]['K_nash'] for sample in samples], dim = 0)
-                    batch['K_lf'] = torch.stack([sample[feature]['K_lf'] for sample in samples], dim = 0)
-                    batch['nash_storage'] = torch.stack([sample[feature]['nash_storage'] for sample in samples], dim = 0)
-                    batch['giuh_ordinates'] = torch.vstack([sample[feature]['giuh_ordinates'] for sample in samples])
-                #batch['depth'] = torch.stack([sample[feature]['depth'] for sample in samples], dim = 0)
+                batch["static_conceptual_params"] = (
+                    dCFE_utils.convert_static_conceptual_params_to_batch(samples)
+                )
+
             else:
                 # Everything else is a torch.Tensor
                 batch[feature] = torch.stack(
