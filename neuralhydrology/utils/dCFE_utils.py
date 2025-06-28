@@ -342,3 +342,96 @@ def move_data_to_device(
         elif not key.startswith("date"):
             data[key] = data[key].to(device)
     return data
+
+def identify_basins_with_low_snow(
+    cfg,
+    basin_file_path: str,
+    yearly_max_snow_days: int = 5,
+) -> list[str]:
+    """
+    Identify basins with low snow days based on NLDAS forcing data.
+    Args:
+        cfg: Configuration object containing data directory.
+        basin_file_path: Path to the basin file to look through.
+        yearly_max_snow_days: Maximum number of snow days per year to consider a basin as having low snow.
+    Returns:
+        List of basin IDs that have low snow days.
+    """
+    # Grab config file so we can see if the code works
+    basins = utils.load_basin_file(basin_file_path)
+    camels_dir = cfg.data_dir
+    nldas_dir = camels_dir / "basin_mean_forcing" / "nldas"
+
+    selected_basins = []
+
+    for basin in basins:
+        forcing_path = None
+        for huc_id in range(1, 19):
+            huc_folder = nldas_dir / f"{huc_id:02d}"
+            candidate = huc_folder / f"{basin}_lump_nldas_forcing_leap.txt"
+            if candidate.exists():
+                forcing_path = candidate
+                break
+
+        if forcing_path is None:
+            print(f"[warn] Forcing file not found for {basin}")
+            continue
+
+        try:
+            df = pd.read_csv(forcing_path, sep=r"\s+", header=3)
+            df["Tavg(C)"] = 0.5 * (df["Tmax(C)"] + df["Tmin(C)"])
+
+            snow_days = (df["PRCP(mm/day)"] > 0) & (df["Tavg(C)"] < 0)
+
+            snow_day_count = snow_days.sum()
+            years = df["Year"].nunique()
+            snow_days_per_year = snow_day_count / years
+
+            if snow_days_per_year <= yearly_max_snow_days:
+                selected_basins.append(basin)
+
+        except FileNotFoundError:
+                print(f"[warn] Forcing file missing: {forcing_path}")
+
+    return selected_basins
+
+
+def filter_basins_all_param_files(
+    cfg,
+    basins: List[str],
+) -> Dict[List[str], List[str]]:
+    """
+    Check whether each basin has both the CFE config and calibrated JSON files.
+
+    Args:
+        basins: List of basin IDs as strings.
+        cfe_param_dir: Path to directory containing *_bmi_config_cfe_pass.txt files.
+        calibrated_params_dir: Path to directory containing cat_*_testrun_results.json files.
+
+    Returns:
+        A tuple:
+            - valid_basins: list of basin IDs where both files exist
+            - missing_basins: list of basin IDs where one or both files are missing
+    """
+    cfe_param_dir = cfg.param_dir
+    calibrated_param_dir = cfg.calibrated_params_path
+    
+    valid_basins = []
+    missing_basins = []
+
+    for basin in basins:
+        cfe_file = cfe_param_dir / f"{basin}_bmi_config_cfe_pass.txt"
+        json_file = calibrated_param_dir / f"cat_{basin}_testrun_results.json"
+
+        if cfe_file.exists() and json_file.exists():
+            valid_basins.append(basin)
+        else:
+            missing_basins.append(basin)
+            if not cfe_file.exists():
+                print(f"[missing] CFE file not found for {basin}")
+            if not json_file.exists():
+                print(f"[missing] JSON file not found for {basin}")
+
+    return {"valid_basins": valid_basins, "missing_basins": missing_basins}
+
+
