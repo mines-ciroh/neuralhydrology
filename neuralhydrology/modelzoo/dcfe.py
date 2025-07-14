@@ -18,7 +18,7 @@ from neuralhydrology.utils.constants import BASIN_CHARACTERISTIC_KEYS, SOIL_KEYS
 # packages from bmi_cfe.py
 
 
-class dCFE(BaseConceptualModel):
+class DCFE(BaseConceptualModel):
     """
     This is an attempt to make a dCFE model based on
     https://github.com/NWC-CUAHSI-Summer-Institute/ngen-aridity/blob/main/Project%20Manuscript_LongForm.pdf
@@ -39,7 +39,7 @@ class dCFE(BaseConceptualModel):
     """
 
     def __init__(self, cfg: Config):
-        super(dCFE, self).__init__(cfg=cfg)
+        super(DCFE, self).__init__(cfg=cfg)
 
         self.cfg = cfg
         # self.temp_soil_params, self.temp_basinCharacteristics = get_dcfe_params(cfg=cfg, device=cfg.device)

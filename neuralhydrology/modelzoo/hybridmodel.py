@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.modelzoo.basemodel import BaseModel
-from neuralhydrology.modelzoo.dcfe import dCFE
+from neuralhydrology.modelzoo.dcfe import DCFE
 from neuralhydrology.modelzoo.inputlayer import InputLayer
 from neuralhydrology.modelzoo.shm import SHM
 from neuralhydrology.utils.config import Config
@@ -109,7 +109,7 @@ class HybridModel(BaseModel):
         if cfg.conceptual_model.lower() == "shm":
             conceptual_model = SHM(cfg=cfg)
         elif cfg.conceptual_model.lower() == "dcfe":
-            conceptual_model = dCFE(cfg=cfg)
+            conceptual_model = DCFE(cfg=cfg)
         else:
             raise NotImplementedError(
                 f"{cfg.conceptual_model} not implemented or not linked in `_get_conceptual_model()`"
