@@ -19,7 +19,7 @@ from neuralhydrology.modelzoo import get_model
 from neuralhydrology.training import get_loss_obj, get_optimizer, get_regularization_obj
 from neuralhydrology.training.logger import Logger
 from neuralhydrology.utils.config import Config
-from neuralhydrology.utils.dCFE_utils import move_data_to_device
+from neuralhydrology.utils.DCFE_utils import move_data_to_device
 from neuralhydrology.utils.logging_utils import setup_logging
 
 LOGGER = logging.getLogger(__name__)

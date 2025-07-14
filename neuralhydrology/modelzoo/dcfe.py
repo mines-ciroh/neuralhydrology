@@ -6,7 +6,7 @@ import torch
 import neuralhydrology.utils.CFE_modules as cfe_module
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
-from neuralhydrology.utils.constants import BASIN_CHARACTERISTIC_KEYS, SOIL_KEYS
+from neuralhydrology.utils.DCFE_utils import KEYS
 
 # packages from cfe.py
 # import time
@@ -77,8 +77,8 @@ class DCFE(BaseConceptualModel):
         # batch_size = x_conceptual.shape[0]
         # TODO: @Ziyu previously these were default_soil_params and default_basinCharacteristics.
         # I think that this was a legacy name from earlier code. Could you confirm droppign the prefix "default_" is okay?
-        self.soil_params = {k: additional_features[k] for k in SOIL_KEYS}
-        self.basinCharacteristics = {k: additional_features[k] for k in BASIN_CHARACTERISTIC_KEYS}
+        self.soil_params = {k: additional_features[k] for k in KEYS["SOIL"]}
+        self.basinCharacteristics = {k: additional_features[k] for k in KEYS["BASIN_CHARACTERISTIC"]}
 
         parameters = self._get_dynamic_parameters_conceptual(lstm_out=lstm_out)
 

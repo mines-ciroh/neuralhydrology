@@ -17,7 +17,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from neuralhydrology.datautils import utils
-from neuralhydrology.utils import dCFE_utils, samplingutils
+from neuralhydrology.utils import DCFE_utils, samplingutils
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils.errors import NoEvaluationDataError, NoTrainDataError
 
@@ -254,8 +254,8 @@ class BaseDataset(Dataset):
     def _load_conceptual_params(self) -> pd.DataFrame:
         """This function has to return the conceptual parameters in a basin-indexed DataFrame."""
 
-        """Now this function loads the conceptual parameters from the dCFE_utils module, static_conceptual_params is basin-indexed df"""
-        self.static_conceptual_params = dCFE_utils.get_dcfe_params_test(self.cfg)
+        """Now this function loads the conceptual parameters from the DCFE_utils module, static_conceptual_params is basin-indexed df"""
+        self.static_conceptual_params = DCFE_utils.get_dcfe_params_test(self.cfg)
 
     def _create_id_to_int(self):
         self.id_to_int = {
@@ -1052,7 +1052,7 @@ class BaseDataset(Dataset):
                 )
             elif feature == "static_conceptual_params":
                 batch["static_conceptual_params"] = (
-                    dCFE_utils.convert_static_conceptual_params_to_batch(samples)
+                    DCFE_utils.convert_static_conceptual_params_to_batch(samples)
                 )
 
             else:

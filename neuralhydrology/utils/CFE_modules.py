@@ -91,12 +91,11 @@ def initialize_basin_constants(
     soil_reservoir["storage_m"] = 0.05 * torch.tensor(1.0, dtype=torch.float32, device=device).repeat(batch_size)
 
     # put things used in Nash Cascade & GIUH under routing
-    # Could we add more detail here explaining what N does? OR, better yet, choose a more informative variable name?
-    N = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[1]  # Daniel changed this from .shape[0] to .shape[1]
+    num_ordinates = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[1]  # Daniel changed this from .shape[0] to .shape[1]
 
     routing_info = {
-        "N": N,  # giuh_ordinates are rows x 1 column for each basin, used in routing
-        "runoff_queue_m_per_timestep": torch.ones((batch_size, N + 1), dtype=torch.float32, device=device),  # nash cascade
+        "num_ordinates": num_ordinates,  # giuh_ordinates are rows x 1 column for each basin, used in routing
+        "runoff_queue_m_per_timestep": torch.ones((batch_size, num_ordinates + 1), dtype=torch.float32, device=device),  # nash cascade
         "num_reservoirs": cfe_params["basinCharacteristics"]["nash_storage"].shape[1],  # 2 reservoirs
     }
 
@@ -937,13 +936,13 @@ def calculate_convolutional_integral_for_GIUH(
     """
 
     # Set the last element in the runoff queue as zero (runoff_queue[:-1] were pushed forward in the last timestep)
-    routing_info["runoff_queue_m_per_timestep"][:, routing_info["N"]] = 0.0
+    routing_info["runoff_queue_m_per_timestep"][:, routing_info["num_ordinates"]] = 0.0
 
-    routing_info["runoff_queue_m_per_timestep"][:, routing_info["N"]] = 0.0
+    routing_info["runoff_queue_m_per_timestep"][:, routing_info["num_ordinates"]] = 0.0
 
     # Add incoming surface runoff to the runoff queue
     routing_info["runoff_queue_m_per_timestep"][:, :-1] = routing_info["runoff_queue_m_per_timestep"][:, :-1] + (
-        cfe_params["basinCharacteristics"]["giuh_ordinates"] * flux["surface_runoff_depth_m"].expand(routing_info["N"], -1).T
+        cfe_params["basinCharacteristics"]["giuh_ordinates"] * flux["surface_runoff_depth_m"].expand(routing_info["num_ordinates"], -1).T
     )
 
     # Take the top one in the runoff queue as runoff to channel

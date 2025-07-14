@@ -434,4 +434,28 @@ def filter_basins_all_param_files(
 
     return {"valid_basins": valid_basins, "missing_basins": missing_basins}
 
-
+KEYS = {
+    "BASIN_CHARACTERISTIC": [
+    "catchment_area_km2",
+    "refkdt",
+    "max_gw_storage",
+    "expon",
+    "Cgw",
+    "alpha_fc",
+    "K_nash",
+    "K_lf",
+    "nash_storage",
+    "giuh_ordinates",
+    ],
+    "SOIL": [
+    "depth",
+    "bb",
+    "satdk",
+    "satpsi",
+    "slop",
+    "smcmax",
+    "wltsmc",
+    "D",
+    "mult",
+    ]
+    }

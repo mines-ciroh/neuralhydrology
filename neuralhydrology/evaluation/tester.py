@@ -25,7 +25,7 @@ from neuralhydrology.modelzoo.basemodel import BaseModel
 from neuralhydrology.training import get_loss_obj, get_regularization_obj
 from neuralhydrology.training.logger import Logger
 from neuralhydrology.utils.config import Config
-from neuralhydrology.utils.dCFE_utils import move_data_to_device
+from neuralhydrology.utils.DCFE_utils import move_data_to_device
 from neuralhydrology.utils.errors import AllNaNError, NoEvaluationDataError
 
 LOGGER = logging.getLogger(__name__)
