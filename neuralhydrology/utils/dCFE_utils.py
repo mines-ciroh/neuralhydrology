@@ -8,7 +8,6 @@ import torch
 import torch.nn.functional as F
 
 from neuralhydrology.datautils import utils
-from neuralhydrology.utils.constants import BASIN_CHARACTERISTIC_KEYS, SOIL_KEYS
 
 
 def get_dcfe_params_test(cfg):
@@ -33,7 +32,7 @@ def get_dcfe_params_test(cfg):
     # empty dataframe to store the parameters, basin ids as index
     # df = pd.DataFrame(index=basins, columns=["soil_params", "basinCharacteristics"])
 
-    col_keys = SOIL_KEYS + BASIN_CHARACTERISTIC_KEYS
+    col_keys = keys['soil'] + keys['basin_characteristics']
     df = pd.DataFrame(index=basins, columns=col_keys)
 
     ####
@@ -434,8 +433,8 @@ def filter_basins_all_param_files(
 
     return {"valid_basins": valid_basins, "missing_basins": missing_basins}
 
-KEYS = {
-    "BASIN_CHARACTERISTIC": [
+keys = {
+    "basin_characteristics": [
     "catchment_area_km2",
     "refkdt",
     "max_gw_storage",
@@ -447,7 +446,7 @@ KEYS = {
     "nash_storage",
     "giuh_ordinates",
     ],
-    "SOIL": [
+    "soil": [
     "depth",
     "bb",
     "satdk",
