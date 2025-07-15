@@ -63,7 +63,6 @@ def initialize_basin_constants(
         "coeff_secondary": 0,
         "exponent_secondary": 1,
     }
-    # self.gw_reservoir['storage_m'] = self.gw_reservoir['storage_max_m'].clone() * 0.5 #0.5 was sweet spot before
 
     gw_reservoir["storage_m"] = 0.05 * torch.tensor(1.0, dtype=torch.float32, device=device).repeat(batch_size)
 

@@ -255,7 +255,7 @@ class BaseDataset(Dataset):
         """This function has to return the conceptual parameters in a basin-indexed DataFrame."""
 
         """Now this function loads the conceptual parameters from the DCFE_utils module, static_conceptual_params is basin-indexed df"""
-        self.static_conceptual_params = DCFE_utils.get_dcfe_params_test(self.cfg)
+        self.static_conceptual_params = DCFE_utils.get_dcfe_params(self.cfg)
 
     def _create_id_to_int(self):
         self.id_to_int = {
