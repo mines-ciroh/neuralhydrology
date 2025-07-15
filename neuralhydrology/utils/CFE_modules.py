@@ -3,6 +3,7 @@ from typing import Dict, Union
 
 import torch
 
+from neuralhydrology.utils.DCFE_utils import physics_constants
 from neuralhydrology.utils.config import Config
 
 # packages from cfe.py
@@ -45,13 +46,7 @@ def initialize_basin_constants(
         "hrs": (3600 if hourly else 3600 * 24) / 3600,  # num of [hours]
         "days": ((3600 if hourly else 3600 * 24) / 3600) / 24,  # time step in [days]
     }
-
-    # TODO : move these to constants.py
-    physics_constants = {
-        "atm_press_Pa": 101325.0,  # [Pa]
-        "unit_weight_water_N_per_m3": 9810.0,  # [N/m3]
-    }
-
+    
     scheme = {
         "soil": cfg.dcfe_soil_scheme,  # choose between 'classic' or 'ode', 'ode' not available rn
         "partition": cfg.dcfe_partition_scheme,  # choose between 'Schaake' or 'Xinanjiang'

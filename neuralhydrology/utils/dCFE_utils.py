@@ -458,3 +458,9 @@ keys = {
     "mult",
     ]
     }
+
+# used in CFE modules
+physics_constants = {
+        "atm_press_Pa": 101325.0,  # [Pa]
+        "unit_weight_water_N_per_m3": 9810.0,  # [N/m3]
+    }
