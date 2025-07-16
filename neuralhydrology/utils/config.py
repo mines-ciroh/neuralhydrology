@@ -901,6 +901,14 @@ class Config(object):
     def dcfe_partition_scheme(self) -> str:
         return self._cfg.get("dcfe_partition_scheme", "Schaake")
     
+    @property
+    def dcfe_spinup_config(self) -> dict:
+        return self._cfg.get("dcfe_spinup_config", "calibrated")
+    
+    @property
+    def dcfe_predict_config(self) -> dict:
+        return self._cfg.get("dcfe_predict_config", "average")
+    
     #____end of new for dCFE____
 
     def _get_embedding_spec(self, embedding_spec: dict) -> dict:

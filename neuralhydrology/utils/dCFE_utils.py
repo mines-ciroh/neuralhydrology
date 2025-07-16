@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+from neuralhydrology.utils.config import Config
 
 from neuralhydrology.datautils import utils
 
@@ -73,18 +74,24 @@ def get_dcfe_params(cfg):
                 data = json.load(file)
                 best_params = data.get("best_params", {})
                 
-                for k in best_params.keys():
-                    match_key = "refkdt" if k == "scheme" else k
-                    if match_key in keys["soil"]:
-                        temp_value = best_params.get(match_key, soil_params[match_key])
-                        soil_params[match_key] = temp_value.clone().detach() if isinstance(temp_value, torch.Tensor) \
-                            else torch.tensor(temp_value, dtype=torch.float32)
-                    elif match_key in keys["basin_characteristics"]:
-                        temp_value = best_params.get(match_key, basinCharacteristics[match_key])
-                        basinCharacteristics[match_key] = temp_value.clone().detach() if isinstance(temp_value, torch.Tensor) \
-                            else torch.tensor(temp_value, dtype=torch.float32)
-                    else:
-                        print(f"[warn] Parameter {k} not recognized in keys, skipping update for basin {basin_id}.")
+                # --- Update soil parameters ---
+                for k in keys["soil"]:
+                    temp_value = best_params.get(k, soil_params[k])
+                    soil_params[k] = (
+                        temp_value.clone().detach()
+                        if isinstance(temp_value, torch.Tensor)
+                        else torch.tensor(temp_value, dtype=torch.float32)
+                        )
+
+                # --- Update basin characteristics ---
+                for k in keys["basin_characteristics"]:
+                    lookup_key = "scheme" if k == "refkdt" else k
+                    temp_value = best_params.get(lookup_key, basinCharacteristics[k])
+                    basinCharacteristics[k] = (
+                        temp_value.clone().detach()
+                        if isinstance(temp_value, torch.Tensor)
+                        else torch.tensor(temp_value, dtype=torch.float32)
+                )
         else:
             print(f"[warn] JSON file not found for basin {basin_id}, using default parameters.")
 
@@ -249,6 +256,72 @@ def filter_basins_all_param_files(
                 print(f"[missing] JSON file not found for {basin}")
 
     return {"valid_basins": valid_basins, "missing_basins": missing_basins}
+
+def cfe_param_input_config(
+    cfg: Config,
+    lstm_out_params: torch.Tensor,
+    calibrated_params: Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]],
+) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
+    """
+    Configure the CFE parameters for spin-up and prediction based on the LSTM outputs and calibrated parameters, 
+    and user-defined configurations.
+    
+    Args:
+        cfg: Configuration object containing spin-up and prediction settings.
+        lstm_out_params: Dictionary of LSTM output parameters, where each key corresponds to a parameter name and the value is a tensor.
+        calibrated_params: Dictionary containing calibrated parameters for soil and basin characteristics.
+    Returns:
+        spinup_cfe_params: Dictionary of CFE parameters for spin-up.
+        predict_cfe_params: Dictionary of CFE parameters for prediction.
+    Raises:
+        ValueError: If the spin-up or prediction configuration is invalid.
+    Notes:
+        - If dynamic configuration is used, the parameters are taken directly from the calibrated parameters
+        as a placeholder for the dynamic parameters, there will be an arguement in dcfe.py to pass the dynamic parameters
+        for each timestep.
+    """
+    
+    
+    spinup_cfe_params = {}
+    predict_cfe_params = {}
+    
+    spin_up_period = cfg.spin_up
+    
+    if cfg.dcfe_spinup_config == "average":
+        # Mean of the LSTM outputs for spin-up
+        for k in lstm_out_params.keys():
+            spinup_cfe_params[k] = lstm_out_params[k][:, :(spin_up_period-1)].mean(dim=1)
+    elif cfg.dcfe_spinup_config == "calibrated" or cfg.dcfe_spinup_config == "dynamic":
+        for k in lstm_out_params.keys():
+            if k in keys["soil"]:
+                spinup_cfe_params[k] = calibrated_params["soil_params"][k]
+            elif k in keys["basin_characteristics"]:
+                spinup_cfe_params[k] = calibrated_params["basinCharacteristics"][k]
+            else:
+                raise ValueError(f"Parameter {k} not recognized in keys.")
+    else:
+        raise ValueError(f"Invalid spin-up configuration: {cfg.dcfe_spinup_config}. Expected 'average', 'calibrated', or 'dynamic'.")
+    
+    
+    if cfg.dcfe_predict_config == "average":
+        # Mean of the LSTM outputs for prediction
+        for k in lstm_out_params.keys():
+            predict_cfe_params[k] = lstm_out_params[k][:, spin_up_period:].mean(dim=1)
+    elif cfg.dcfe_predict_config == "calibrated" or cfg.dcfe_predict_config == "dynamic":
+        # Calibrated parameters for prediction
+        for k in lstm_out_params.keys():
+            if k in keys["soil"]:
+                predict_cfe_params[k] = calibrated_params["soil_params"][k]
+            elif k in keys["basin_characteristics"]:
+                predict_cfe_params[k] = calibrated_params["basinCharacteristics"][k]
+            else:
+                raise ValueError(f"Parameter {k} not recognized in keys.")
+    else:
+        raise ValueError(f"Invalid prediction configuration: {cfg.dcfe_predict_config}. Expected 'average', 'calibrated', or 'dynamic'.")
+        
+    return spinup_cfe_params, predict_cfe_params
+
+
 
 keys = {
     "basin_characteristics": [
