@@ -435,13 +435,13 @@ class BaseTester(object):
 
                 if all_output:
                     for key, value in predictions.items():
-                        if value is not None and type(value) != dict:
+                        if value is not None and type(value) is not dict:
                             all_output[key].append(value.detach().cpu().numpy())
                 elif save_all_output:
                     all_output = {
                         key: [value.detach().cpu().numpy()]
                         for key, value in predictions.items()
-                        if value is not None and type(value) != dict
+                        if value is not None and type(value) is not dict
                     }
 
                 for freq in frequencies:
