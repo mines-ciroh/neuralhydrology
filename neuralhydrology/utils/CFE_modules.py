@@ -3,8 +3,8 @@ from typing import Dict, Union
 
 import torch
 
-from neuralhydrology.utils.DCFE_utils import physics_constants
 from neuralhydrology.utils.config import Config
+from neuralhydrology.utils.DCFE_utils import physics_constants
 
 # packages from cfe.py
 
@@ -46,7 +46,7 @@ def initialize_basin_constants(
         "hrs": (3600 if hourly else 3600 * 24) / 3600,  # num of [hours]
         "days": ((3600 if hourly else 3600 * 24) / 3600) / 24,  # time step in [days]
     }
-    
+
     scheme = {
         "soil": cfg.dcfe_soil_scheme,  # choose between 'classic' or 'ode', 'ode' not available rn
         "partition": cfg.dcfe_partition_scheme,  # choose between 'Schaake' or 'Xinanjiang'
@@ -85,11 +85,15 @@ def initialize_basin_constants(
     soil_reservoir["storage_m"] = 0.05 * torch.tensor(1.0, dtype=torch.float32, device=device).repeat(batch_size)
 
     # put things used in Nash Cascade & GIUH under routing
-    num_ordinates = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[1]  # Daniel changed this from .shape[0] to .shape[1]
+    num_ordinates = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[
+        1
+    ]  # Daniel changed this from .shape[0] to .shape[1]
 
     routing_info = {
         "num_ordinates": num_ordinates,  # giuh_ordinates are rows x 1 column for each basin, used in routing
-        "runoff_queue_m_per_timestep": torch.ones((batch_size, num_ordinates + 1), dtype=torch.float32, device=device),  # nash cascade
+        "runoff_queue_m_per_timestep": torch.ones(
+            (batch_size, num_ordinates + 1), dtype=torch.float32, device=device
+        ),  # nash cascade
         "num_reservoirs": cfe_params["basinCharacteristics"]["nash_storage"].shape[1],  # 2 reservoirs
     }
 
@@ -936,7 +940,8 @@ def calculate_convolutional_integral_for_GIUH(
 
     # Add incoming surface runoff to the runoff queue
     routing_info["runoff_queue_m_per_timestep"][:, :-1] = routing_info["runoff_queue_m_per_timestep"][:, :-1] + (
-        cfe_params["basinCharacteristics"]["giuh_ordinates"] * flux["surface_runoff_depth_m"].expand(routing_info["num_ordinates"], -1).T
+        cfe_params["basinCharacteristics"]["giuh_ordinates"]
+        * flux["surface_runoff_depth_m"].expand(routing_info["num_ordinates"], -1).T
     )
 
     # Take the top one in the runoff queue as runoff to channel
@@ -1035,8 +1040,8 @@ def soil_reservoir_configuration(
 
 
 def timestep_CFE_new(
-    x_conceptual_timestep: torch.Tensor,
-    cfe_params: Dict[str, torch.Tensor],
+    x_conceptual_timestep: torch.Tensor,  # dimension [batch_size, number of conceptual forcing terms]
+    cfe_params: Dict[str, torch.Tensor],  # dimension [batch_size, n_cfe_params]
     timestep_parameters: Dict[str, torch.Tensor],
     constants: Dict[str, torch.Tensor],
     gw_reservoir: Dict[str, torch.Tensor],
