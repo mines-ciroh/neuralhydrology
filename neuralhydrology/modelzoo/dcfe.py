@@ -1,21 +1,10 @@
-# original shm packages
 from typing import Dict, Union
-
 import torch
 
 import neuralhydrology.utils.CFE_modules as cfe_module
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
 import neuralhydrology.utils.DCFE_utils as dCFE_utils
-
-# packages from cfe.py
-# import time
-# import sys
-# import math
-# import torch
-# from torchdiffeq import odeint
-
-# packages from bmi_cfe.py
 
 
 class DCFE(BaseConceptualModel):
@@ -106,7 +95,7 @@ class DCFE(BaseConceptualModel):
                         timestep_spinup_params[key] = parameters[key][:, j]
                 
                 # run the CFE model for the time step w/ Hydroshare Params
-                cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = cfe_module.timestep_CFE_new(
+                cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = cfe_module.timestep_CFE(
                     x_conceptual_timestep = x_conceptual[:, j, :],
                     cfe_params = cfe_params,
                     timestep_parameters = timestep_spinup_params,
@@ -133,7 +122,7 @@ class DCFE(BaseConceptualModel):
                 for key in timestep_predict_params.keys():
                     timestep_predict_params[key] = parameters[key][:, k]
         
-            cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = cfe_module.timestep_CFE_new(
+            cfe_params, gw_reservoir, soil_reservoir, routing_info, flux = cfe_module.timestep_CFE(
                 x_conceptual_timestep = x_conceptual[:, k, :],
                 cfe_params = cfe_params,
                 timestep_parameters = timestep_predict_params,
