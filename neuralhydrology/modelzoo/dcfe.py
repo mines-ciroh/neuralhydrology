@@ -1,10 +1,21 @@
+# original shm packages
 from typing import Dict, Union
+
 import torch
 
 import neuralhydrology.utils.CFE_modules as cfe_module
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
 import neuralhydrology.utils.DCFE_utils as dCFE_utils
+
+# packages from cfe.py
+# import time
+# import sys
+# import math
+# import torch
+# from torchdiffeq import odeint
+
+# packages from bmi_cfe.py
 
 
 class DCFE(BaseConceptualModel):

@@ -1039,15 +1039,9 @@ def soil_reservoir_configuration(
     }
 
 
-<<<<<<< HEAD
-def timestep_CFE_new(
-    x_conceptual_timestep: torch.Tensor,  # dimension [batch_size, number of conceptual forcing terms]
-    cfe_params: Dict[str, torch.Tensor],  # dimension [batch_size, n_cfe_params]
-=======
 def timestep_CFE(
     x_conceptual_timestep: torch.Tensor,
     cfe_params: Dict[str, torch.Tensor],
->>>>>>> f1184178a35faa18cab449bd7e66bd16823a99ef
     timestep_parameters: Dict[str, torch.Tensor],
     constants: Dict[str, torch.Tensor],
     gw_reservoir: Dict[str, torch.Tensor],
