@@ -4,7 +4,7 @@ from typing import Dict, Union
 import torch
 
 from neuralhydrology.utils.config import Config
-from neuralhydrology.utils.DCFE_utils import physics_constants
+from neuralhydrology.utils.DCFE_utils import physics_constants, keys
 
 # packages from cfe.py
 
@@ -84,17 +84,17 @@ def initialize_basin_constants(
 
     soil_reservoir["storage_m"] = 0.05 * torch.tensor(1.0, dtype=torch.float32, device=device).repeat(batch_size)
 
-    # put things used in Nash Cascade & GIUH under routing
+    # put items used in Nash Cascade & GIUH under routing
     num_ordinates = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[
         1
-    ]  # Daniel changed this from .shape[0] to .shape[1]
+    ]
 
     routing_info = {
         "num_ordinates": num_ordinates,  # giuh_ordinates are rows x 1 column for each basin, used in routing
         "runoff_queue_m_per_timestep": torch.ones(
             (batch_size, num_ordinates + 1), dtype=torch.float32, device=device
         ),  # nash cascade
-        "num_reservoirs": cfe_params["basinCharacteristics"]["nash_storage"].shape[1],  # 2 reservoirs
+        "num_reservoirs": cfe_params["basinCharacteristics"]["nash_storage"].shape[1],  # 2 reservoirs is default
     }
 
     flux = {"flux_perc_m": torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)}
@@ -136,19 +136,15 @@ def timestep_basin_constants(
         soil_reservoir (Dict[str, torch.Tensor]): updated soil_reservoir
     """
     # updating them into the cfe_params
-    # TODO: Can we refactor the code below into a single function call or list comprehension?
-    cfe_params["soil_params"]["bb"] = timestep_params["bb"]
-    cfe_params["soil_params"]["satdk"] = timestep_params["satdk"]
-    cfe_params["soil_params"]["smcmax"] = timestep_params["smcmax"]
-    cfe_params["soil_params"]["slop"] = timestep_params["slop"]
-    cfe_params["soil_params"]["satpsi"] = timestep_params["satpsi"]
-    cfe_params["basinCharacteristics"]["Cgw"] = timestep_params["Cgw"]
-    cfe_params["basinCharacteristics"]["max_gw_storage"] = timestep_params["max_gw_storage"]
-    cfe_params["basinCharacteristics"]["K_nash"] = timestep_params["K_nash"]
-    cfe_params["basinCharacteristics"]["K_lf"] = timestep_params["K_lf"]
-    cfe_params["basinCharacteristics"]["expon"] = timestep_params["expon"]
+    for k in timestep_params.keys():
+        if k in keys["soil"]:
+            cfe_params["soil_params"][k] = timestep_params[k]
+        elif k in keys["basin_characteristics"]:
+            cfe_params["basinCharacteristics"][k] = timestep_params[k]
+        else:
+            raise ValueError(f"Parameter {k} not recognized in keys.")
 
-    # cfe_params updates some reservoir parameters
+    # cfe_params updates some reservoir parameters, same in OG CFE
     gw_reservoir["storage_max_m"] = cfe_params["basinCharacteristics"]["max_gw_storage"]
     gw_reservoir["coeff_primary"] = cfe_params["basinCharacteristics"]["Cgw"]
     gw_reservoir["exponent_primary"] = cfe_params["basinCharacteristics"]["expon"]
@@ -197,31 +193,18 @@ def initialize_flux_timestep(conceptual_forcing_timestep: torch.Tensor, flux: Di
     device = conceptual_forcing_timestep.device
     batch_size = conceptual_forcing_timestep.shape[0]
 
-    # reset fluxes that can store information at every time-step. This will be #basin x
-    flux["surface_runoff_depth_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["infilt_excess_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
+    flux_keys = [
+        "surface_runoff_depth_m", "infilt_excess_m", "infiltration_depth_m", "infilt_depth_m",
+        "actual_et_from_rain_m_per_timestep", "actual_et_from_soil_m_per_timestep", "actual_et_m_per_timestep",
+        "reduced_potential_et_m_per_timestep", "primary_flux_m", "secondary_flux_m",
+        "primary_flux_from_gw_m", "secondary_flux_from_gw_m", "giuh_runoff_m",
+        "nash_lateral_runoff_m", "from_deep_gw_to_chan_m", "tension_water_m"
+    ]
 
-    # infilt excess & surface rnoff depth are the same? I'm using infilt excess to be consistent to cfe
-    flux["infiltration_depth_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["infilt_depth_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["actual_et_from_rain_m_per_timestep"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["actual_et_from_soil_m_per_timestep"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["actual_et_m_per_timestep"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
+    zero_tensor = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
 
-    # reset ET
-    flux["reduced_potential_et_m_per_timestep"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["primary_flux_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["secondary_flux_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-
-    # below are all added later, not in original initialization
-    flux["primary_flux_from_gw_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["secondary_flux_from_gw_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["giuh_runoff_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["nash_lateral_runoff_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-    flux["from_deep_gw_to_chan_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
-
-    # 'Xinanjiang' partition only
-    flux["tension_water_m"] = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
+    for key in flux_keys:
+        flux[key] = zero_tensor.clone()
 
     return flux
 

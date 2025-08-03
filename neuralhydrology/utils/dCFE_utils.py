@@ -321,8 +321,6 @@ def cfe_param_input_config(
         
     return spinup_cfe_params, predict_cfe_params
 
-
-
 keys = {
     "basin_characteristics": [
         "catchment_area_km2",
