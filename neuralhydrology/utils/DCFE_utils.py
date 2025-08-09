@@ -318,6 +318,12 @@ def cfe_param_input_config(
                 raise ValueError(f"Parameter {k} not recognized in keys.")
     else:
         raise ValueError(f"Invalid prediction configuration: {cfg.dcfe_predict_config}. Expected 'average', 'calibrated', or 'dynamic'.")
+    
+    if cfg.dcfe_spinup_config == "average" and cfg.dcfe_predict_config == "average":
+        # If both spin-up and prediction are average, we can use the same parameters that's averaged for the whole period
+        for k in lstm_out_params.keys():
+            spinup_cfe_params[k] = lstm_out_params[k].mean(dim=1)
+            predict_cfe_params[k] = spinup_cfe_params[k]
         
     return spinup_cfe_params, predict_cfe_params
 
