@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.modelzoo.basemodel import BaseModel
-from neuralhydrology.modelzoo.dcfe import dCFE
+from neuralhydrology.modelzoo.dcfe import DCFE
 from neuralhydrology.modelzoo.inputlayer import InputLayer
 from neuralhydrology.modelzoo.shm import SHM
 from neuralhydrology.utils.config import Config
@@ -70,10 +70,6 @@ class HybridModel(BaseModel):
             0, 1
         )  # reshape to [batch_size, seq, n_hiddens]
 
-        # Access the test feature in the data loader
-        print(
-            f"Hello from HybridModel! The test feature is: {data['static_conceptual_params']} which is also the basin id"
-        )
         # map lstm outputs to the dimension of the conceptual model´s parameters
         lstm_out = lstm_output[
             :, self.cfg.warmup_period :, :
@@ -84,17 +80,15 @@ class HybridModel(BaseModel):
         if self.cfg.conceptual_model.lower() == "dcfe":
             # dCFE only
             pred = self.conceptual_model(
-            x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
-            lstm_out=lstm_out,
-            additional_features=data["static_conceptual_params"]
+                x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
+                lstm_out=lstm_out,
+                additional_features=data["static_conceptual_params"],
             )
         else:
             pred = self.conceptual_model(
-            x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
-            lstm_out=lstm_out,
+                x_conceptual=data["x_d_c"][:, self.cfg.warmup_period :, :],
+                lstm_out=lstm_out,
             )
-            
-        # TODO: Add data.additional_features as an input to self.conceptual_model. Done?
 
         return pred
 
@@ -115,7 +109,7 @@ class HybridModel(BaseModel):
         if cfg.conceptual_model.lower() == "shm":
             conceptual_model = SHM(cfg=cfg)
         elif cfg.conceptual_model.lower() == "dcfe":
-            conceptual_model = dCFE(cfg=cfg)
+            conceptual_model = DCFE(cfg=cfg)
         else:
             raise NotImplementedError(
                 f"{cfg.conceptual_model} not implemented or not linked in `_get_conceptual_model()`"

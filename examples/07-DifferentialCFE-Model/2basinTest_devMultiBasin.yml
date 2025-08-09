@@ -8,7 +8,6 @@ experiment_name: DevMultiBasin_Test
 train_basin_file: 2_basin.txt
 validation_basin_file: 2_basin.txt
 test_basin_file: 2_basin.txt
-basin_id: 02177000  # useful to list this separately.
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
@@ -50,6 +49,14 @@ model: hybrid_model
 
 conceptual_model: dcfe
 
+# dcfe speicifc settings
+dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
+dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
+dcfe_hourly: False # Daily, hourly is bad
+dcfe_spinup_config: average # What CFE parameters to use for spin-up, can be average, calibrated, or dynamic
+dcfe_predict_config: average # What CFE parameters to use for prediction, can be average, calibrated, or dynamic
+
+
 # prediction head [regression]. Define the head specific parameters below
 head: regression
 
@@ -89,7 +96,7 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 5
+epochs: 3
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
@@ -130,6 +137,7 @@ dataset: camels_us
 # Path to data set root
 #data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
 #param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+#calibrated_params_path: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/data/CFE_Calibrated_Config/runs
 data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
 param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs

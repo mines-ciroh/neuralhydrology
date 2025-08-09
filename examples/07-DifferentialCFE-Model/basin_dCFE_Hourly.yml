@@ -2,7 +2,7 @@
 
 # experiment name, used as folder name
 #experiment_name: testdCFEpetWarm336_run
-experiment_name: 5Epoch_SingleBasin_Consistency_Exp1
+experiment_name: TestdCFEHourly_run02177000_multiBasinTest
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin02177000.txt
@@ -50,6 +50,11 @@ model: hybrid_model
 
 conceptual_model: dcfe
 
+# dcfe speicifc settings
+dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
+dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
+dcfe_hourly: True
+
 # prediction head [regression]. Define the head specific parameters below
 head: regression
 
@@ -89,21 +94,21 @@ learning_rate:
 batch_size: 256
 
 # Number of training epochs
-epochs: 5
+epochs: 16
 
 # If a value, clips the gradients during training to that norm.
 clip_gradient_norm: 1
 
 # Defines which time steps are used to calculate the loss. Can't be larger than seq_length.
 # If use_frequencies is used, this needs to be a dict mapping each frequency to a predict_last_n-value, else an int.
-predict_last_n: 365
+predict_last_n: 8760
 
 # Length of the input sequence
-seq_length: 910 # must be predict_last_n + warmup_period + spin_up
+seq_length: 17700 # must be predict_last_n + warmup_period + spin_up
 
 warmup_period: 180 #for the LSTM model
 
-spin_up: 365 #for the CFE part of the model
+spin_up: 8760 #for the CFE part of the model
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8
@@ -120,16 +125,14 @@ log_n_figures: 1
 # Save model weights every n epochs
 save_weights_every: 1
 
-seed: 123 # random seed for reproducibility
-
 # --- Data configurations --------------------------------------------------------------------------
 
 # which data set to use [camels_us, camels_gb, global, hourly_camels_us]
-dataset: camels_us
+dataset: hourly_camels_us
 
 # Path to data set root
-#data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
-#param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+#data_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CAMELS_US
+#param_dir: /Users/danielmckenzie/My-Drive/Research/Spatial_Statistics/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
 param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs
@@ -137,57 +140,45 @@ calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchool
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
 # can be either a list of forcings or a single forcing product
 forcings:
-  - maurer
-  - daymet
-  - nldas
+  - nldas_hourly
 
 dynamic_inputs:
-  - PRCP(mm/day)_nldas
-  - PRCP(mm/day)_maurer
-  - prcp(mm/day)_daymet
-  - srad(W/m2)_daymet
-  - tmax(C)_daymet
-  - tmin(C)_daymet
-  - vp(Pa)_daymet
+  - convective_fraction
+  - longwave_radiation
+  - potential_energy
+  - potential_evaporation
+  - pressure
+  - specific_humidity
+  - wind_u
+  - wind_v
 
-# static_attributes:
+#static_attributes:
 #  - elev_mean
 #  - slope_mean
 
-duplicate_features:
-  - PRCP(mm/day)_nldas
-  - tmax(C)_daymet
-  - tmin(C)_daymet
-  - srad(W/m2)_daymet
-
 dynamic_conceptual_inputs:
-  - PRCP(mm/day)_nldas_copy1
-  - tmin(C)_daymet_copy1
-  - tmax(C)_daymet_copy1
-  - srad(W/m2)_daymet_copy1
+  - total_precipitation
+  - temperature
+  - shortwave_radiation
 
 custom_normalization:
-  QObs(mm/d):
+  QObs_CAMELS(mm/h):
     centering: None
     scaling: None
-  PRCP(mm/day)_nldas_copy1:
+  total_precipitation:
     centering: None
     scaling: None
-  srad(W/m2)_daymet_copy1:
+  temperature:
     centering: None
     scaling: None
-  tmin(C)_daymet_copy1:
+  shortwave_radiation:
     centering: None
     scaling: None
-  tmax(C)_daymet_copy1:
-    centering: None
-    scaling: None
-
 
 # which columns to use as target
 target_variables:
-  - QObs(mm/d)
+  - QObs_CAMELS(mm/h)
 
 # clip negative predictions to zero for all variables listed below. Should be a list, even for single variables.
 clip_targets_to_zero:
-  - QObs(mm/d)
+  - QObs_CAMELS(mm/h)
