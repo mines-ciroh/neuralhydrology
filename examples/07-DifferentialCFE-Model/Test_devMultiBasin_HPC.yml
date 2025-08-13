@@ -5,16 +5,16 @@
 experiment_name: DevMultiBasinHPC_Test
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: 2_basin.txt
-validation_basin_file: 2_basin.txt
-test_basin_file: 2_basin.txt
+train_basin_file: basin_noSnow.txt
+validation_basin_file: basin_noSnow.txt
+test_basin_file: basin_noSnow.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
 train_end_date: "30/09/2014"
 validation_start_date: "01/10/1990"
-validation_end_date: "30/09/1999"
-test_start_date: "01/10/1999"
+validation_end_date: "30/09/1996"
+test_start_date: "01/10/1996"
 test_end_date: "30/09/2000"
 
 #train_start_date: "01/10/2000"
@@ -151,28 +151,34 @@ forcings:
 
 dynamic_inputs:
   - PRCP(mm/day)_nldas
-  - PRCP(mm/day)_maurer
-  - prcp(mm/day)_daymet
-  - srad(W/m2)_daymet
-  - tmax(C)_daymet
-  - tmin(C)_daymet
-  - vp(Pa)_daymet
+  - SRAD(W/m2)_nldas
+  - Tmax(C)_nldas
+  - Tmin(C)_nldas
+  - Vp(Pa)_nldas
 
 static_attributes:
   - elev_mean
   - slope_mean
+  - clay_frac
+  - silt_frac
+  - sand_frac
+  - organic_frac
+  - water_frac
+  - frac_snow
+  - pet_mean
+  - aridity
 
 duplicate_features:
   - PRCP(mm/day)_nldas
-  - tmax(C)_daymet
-  - tmin(C)_daymet
-  - srad(W/m2)_daymet
+  - Tmax(C)_nldas
+  - Tmin(C)_nldas
+  - SRAD(W/m2)_nldas
 
 dynamic_conceptual_inputs:
   - PRCP(mm/day)_nldas_copy1
-  - tmin(C)_daymet_copy1
-  - tmax(C)_daymet_copy1
-  - srad(W/m2)_daymet_copy1
+  - Tmin(C)_nldas_copy1
+  - Tmax(C)_nldas_copy1
+  - SRAD(W/m2)_nldas_copy1
 
 custom_normalization:
   QObs(mm/d):
@@ -181,13 +187,13 @@ custom_normalization:
   PRCP(mm/day)_nldas_copy1:
     centering: None
     scaling: None
-  srad(W/m2)_daymet_copy1:
+  SRAD(W/m2)_nldas_copy1:
     centering: None
     scaling: None
-  tmin(C)_daymet_copy1:
+  Tmin(C)_nldas_copy1:
     centering: None
     scaling: None
-  tmax(C)_daymet_copy1:
+  Tmax(C)_nldas_copy1:
     centering: None
     scaling: None
 

@@ -4,16 +4,16 @@
 experiment_name: EXP1_CAMELS_noSnow_HPC
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
-train_basin_file: basin_noSnow.txt
-validation_basin_file: basin_noSnow.txt
-test_basin_file: basin_noSnow.txt
+train_basin_file: /home/ziyu/neuralhydrology/examples/07-DifferentialCFE-Model/basin_noSnow.txt
+validation_basin_file: /home/ziyu/neuralhydrology/examples/07-DifferentialCFE-Model/basin_noSnow.txt
+test_basin_file: /home/ziyu/neuralhydrology/examples/07-DifferentialCFE-Model/basin_noSnow.txt
 
 # training, validation and test time periods (format = 'dd/mm/yyyy')
 train_start_date: "01/10/2000"
 train_end_date: "30/09/2014"
-validation_start_date: "01/10/1980"
-validation_end_date: "30/09/1990"
-test_start_date: "01/10/1990"
+validation_start_date: "01/10/1990"
+validation_end_date: "30/09/1996"
+test_start_date: "01/10/1996"
 test_end_date: "30/09/2000"
 
 # which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
@@ -65,10 +65,6 @@ initial_forget_bias: 3
 
 # Dropout applied to the output of the LSTM
 output_dropout: 0.2 # 10 to 20% dropout is a good amount, but default was 0.4
-
-#### ----- dCFE Specific Configurations ---- #####
-# soil_scheme: classic
-# partition_scheme: Schaake # Schaake or Xinanjiang
 
 # --- Training configuration -----------------------------------------------------------------------
 
@@ -137,46 +133,54 @@ calibrated_params_path: /home/ziyu/data/CFE_Calibrated_Config/runs
 # Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
 # can be either a list of forcings or a single forcing product
 forcings:
+  - daymet
   - nldas
 
 dynamic_inputs:
-  - PRCP(mm/day)
-  - SRAD(W/m2)
-  - SWE (mm)
-  - Tmax(C)
-  - Tmin(C)
-  - Vp(Pa)
+  - PRCP(mm/day)_nldas
+  - SRAD(W/m2)_nldas
+  - Tmax(C)_nldas
+  - Tmin(C)_nldas
+  - Vp(Pa)_nldas
 
 static_attributes:
   - elev_mean
   - slope_mean
+  - clay_frac
+  - silt_frac
+  - sand_frac
+  - organic_frac
+  - water_frac
+  - frac_snow
+  - pet_mean
+  - aridity
 
 duplicate_features:
-  - PRCP(mm/day)
-  - Tmax(C)
-  - Tmin(C)
-  - SRAD(W/m2)
+  - PRCP(mm/day)_nldas
+  - Tmax(C)_nldas
+  - Tmin(C)_nldas
+  - SRAD(W/m2)_nldas
 
 dynamic_conceptual_inputs:
-  - PRCP(mm/day)_copy1
-  - Tmin(C)_copy1
-  - Tmax(C)_copy1
-  - SRAD(W/m2)_copy1
+  - PRCP(mm/day)_nldas_copy1
+  - Tmin(C)_nldas_copy1
+  - Tmax(C)_nldas_copy1
+  - SRAD(W/m2)_nldas_copy1
 
 custom_normalization:
   QObs(mm/d):
     centering: None
     scaling: None
-  PRCP(mm/day)_copy1:
+  PRCP(mm/day)_nldas_copy1:
     centering: None
     scaling: None
-  Tmin(C)_copy1:
+  Tmin(C)_nldas_copy1:
     centering: None
     scaling: None
-  Tmax(C)_copy1:
+  Tmax(C)_nldas_copy1:
     centering: None
     scaling: None
-  SRAD(W/m2)_copy1:
+  SRAD(W/m2)_nldas_copy1:
     centering: None
     scaling: None
 
