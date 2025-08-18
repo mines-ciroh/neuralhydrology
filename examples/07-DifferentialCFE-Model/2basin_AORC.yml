@@ -18,9 +18,9 @@ test_basin_file: 2_basin.txt
 #test_end_date: "30/09/2000"
 
 train_start_date: "01/10/2000"
-train_end_date: "30/09/2003"
-validation_start_date: "01/10/1989"
-validation_end_date: "30/09/1991"
+train_end_date: "30/09/2010"
+validation_start_date: "30/09/1992"
+validation_end_date: "30/09/1999"
 test_start_date: "01/10/1999"
 test_end_date: "30/09/2000"
 
@@ -52,7 +52,7 @@ conceptual_model: dcfe
 # dcfe speicifc settings
 dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
 dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
-dcfe_hourly: TRUE # Daily = FALSE, hourly = TRUE is bad
+dcfe_hourly: FALSE # Daily = FALSE, hourly = TRUE is bad
 dcfe_spinup_config: average # What CFE parameters to use for spin-up, can be average, calibrated, or dynamic
 dcfe_predict_config: average # What CFE parameters to use for prediction, can be average, calibrated, or dynamic
 
@@ -138,7 +138,7 @@ dataset: generic
 #data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
 #param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 #calibrated_params_path: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/data/CFE_Calibrated_Config/runs
-data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data
+data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/AORC_Daily
 param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs
 
@@ -151,7 +151,8 @@ calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchool
 
 dynamic_inputs:
   - APCP_surface
-  - TMP_2maboveground
+  - TMP_2maboveground_min
+  - TMP_2maboveground_max
   - PRES_surface
   - DSWRF_surface
   - DLWRF_surface
@@ -165,22 +166,27 @@ dynamic_inputs:
 
 duplicate_features:
   - APCP_surface
-  - TMP_2maboveground
+  - TMP_2maboveground_min
+  - TMP_2maboveground_max
   - DSWRF_surface
 
 dynamic_conceptual_inputs:
   - APCP_surface_copy1
-  - TMP_2maboveground_copy1
+  - TMP_2maboveground_min_copy1
+  - TMP_2maboveground_max_copy1
   - DSWRF_surface_copy1
 
 custom_normalization:
-  qobs_mm_per_hour:
+  QObs_mm_per_day:
     centering: None
     scaling: None
   APCP_surface_copy1:
     centering: None
     scaling: None
-  TMP_2maboveground_copy1:
+  TMP_2maboveground_min_copy1:
+    centering: None
+    scaling: None
+  TMP_2maboveground_max_copy1:
     centering: None
     scaling: None
   DSWRF_surface_copy1:
@@ -190,8 +196,8 @@ custom_normalization:
 
 # which columns to use as target
 target_variables:
-  - qobs_mm_per_hour
+  - QObs_mm_per_day
 
 # clip negative predictions to zero for all variables listed below. Should be a list, even for single variables.
 clip_targets_to_zero:
-  - qobs_mm_per_hour
+  - QObs_mm_per_day
