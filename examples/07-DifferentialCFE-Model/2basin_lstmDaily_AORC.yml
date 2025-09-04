@@ -1,0 +1,149 @@
+# --- Experiment configurations --------------------------------------------------------------------
+
+# experiment name, used as folder name
+experiment_name: testLSTM_AORC_run
+
+# files to specify training, validation and test basins (relative to code root or absolute path)
+train_basin_file: 2_basin.txt
+validation_basin_file: 2_basin.txt
+test_basin_file: 2_basin.txt
+
+# training, validation and test time periods (format = 'dd/mm/yyyy')
+train_start_date: "01/10/1989"
+train_end_date: "30/09/1995"
+validation_start_date: "01/10/1995"
+validation_end_date: "30/09/2003"
+test_start_date: "01/10/2003"
+test_end_date: "30/09/2006"
+
+# which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
+device: cpu
+
+# --- Validation configuration ---------------------------------------------------------------------
+
+# specify after how many epochs to perform validation
+validate_every: 3
+
+# specify how many random basins to use for validation
+validate_n_random_basins: 1
+
+# specify which metrics to calculate during validation (see neuralhydrology.evaluation.metrics)
+# this can either be a list or a dictionary. If a dictionary is used, the inner keys must match the name of the
+# target_variable specified below. Using dicts allows for different metrics per target variable.
+metrics:
+  - NSE
+
+# --- Model configuration --------------------------------------------------------------------------
+
+# base model type [lstm, ealstm, cudalstm, embcudalstm, mtslstm]
+# (has to match the if statement in modelzoo/__init__.py)
+model: lstm
+
+# prediction head [regression]. Define the head specific parameters below
+head: regression
+
+# ----> Regression settings <----
+output_activation: linear
+
+# ----> General settings <----
+
+# Number of cell states of the LSTM
+hidden_size: 20
+
+# Initial bias value of the forget gate
+initial_forget_bias: 3
+
+# Dropout applied to the output of the LSTM
+output_dropout: 0.4
+
+# --- Training configuration -----------------------------------------------------------------------
+
+# specify optimizer [Adam]
+optimizer: Adam
+
+# specify loss [MSE, NSE, RMSE]
+loss: MSE
+
+# specify learning rates to use starting at specific epochs (0 is the initial learning rate)
+learning_rate:
+  0: 1e-2
+  30: 5e-3
+  40: 1e-3
+
+# Mini-batch size
+batch_size: 256
+
+# Number of training epochs
+epochs: 10
+
+# If a value, clips the gradients during training to that norm.
+clip_gradient_norm: 1
+
+# Defines which time steps are used to calculate the loss. Can't be larger than seq_length.
+predict_last_n: 1 # multi-timescale example's 1hr set up was 24, but when it was running it was only doing the last one
+
+# Length of the input sequence
+
+seq_length: 600 # grabbed this from multi-timescale example's 1hr set up. 
+# This is equivalent to 2 weeks.
+
+# Number of parallel workers used in the data pipeline
+num_workers: 8
+
+# Log the training loss every n steps
+log_interval: 5
+
+# If true, writes logging results into tensorboard file
+log_tensorboard: True
+
+# If a value and greater than 0, logs n random basins as figures during validation
+log_n_figures: 1
+
+# Save model weights every n epochs
+save_weights_every: 1
+
+seed: 123 # random seed for reproducibility
+
+# --- Data configurations --------------------------------------------------------------------------
+
+# which data set to use [camels_us, camels_gb, global, hourly_camels_us]
+dataset: generic
+
+# Path to data set root
+#data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
+#param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+#calibrated_params_path: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/data/CFE_Calibrated_Config/runs
+data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/AORC_Daily
+param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs
+
+# Forcing product [daymet, maurer, maurer_extended, nldas, nldas_extended, nldas_hourly]
+# can be either a list of forcings or a single forcing product
+#forcings:
+#  - maurer
+#  - daymet
+#  - nldas
+
+static_attributes:
+  - dis_m3_pyr
+  - tmp_dc_smx
+
+dynamic_inputs:
+  - APCP_surface
+  - TMP_2maboveground_min
+  - TMP_2maboveground_max
+  - PRES_surface
+  - DSWRF_surface
+  - DLWRF_surface
+  - SPFH_2maboveground
+  - UGRD_10maboveground
+  - VGRD_10maboveground
+
+# which columns to use as target
+# QObs(mm/h) is from csv forcings, qobs_mm_per_hour for nc 
+target_variables:
+  - QObs_mm_per_day
+
+# clip negative predictions to zero for all variables listed below. Should be a list, even for single variables.
+clip_targets_to_zero:
+  - QObs_mm_per_day
