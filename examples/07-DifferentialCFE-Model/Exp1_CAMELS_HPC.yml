@@ -41,7 +41,7 @@ model: hybrid_model
 
 conceptual_model: dcfe
 
-# dcfe speicifc settings
+# dcfe specific settings
 dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
 dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
 dcfe_hourly: False # Daily, hourly is bad
