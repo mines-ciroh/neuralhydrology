@@ -2,9 +2,8 @@
 from typing import Dict, Union
 
 import torch
-
 from neuralhydrology.utils.config import Config
-from neuralhydrology.utils.DCFE_utils import physics_constants, keys
+from neuralhydrology.utils.DCFE_utils import KEYS, PHYSICS_CONSTANTS
 
 # packages from cfe.py
 
@@ -52,7 +51,7 @@ def initialize_basin_constants(
         "partition": cfg.dcfe_partition_scheme,  # choose between 'Schaake' or 'Xinanjiang'
     }
 
-    constants = {"time": time, "physics": physics_constants, "cfe_scheme": scheme}
+    constants = {"time": time, "physics": PHYSICS_CONSTANTS, "cfe_scheme": scheme}
 
     gw_reservoir = {
         "storage_max_m": cfe_params["basinCharacteristics"]["max_gw_storage"],
@@ -85,9 +84,7 @@ def initialize_basin_constants(
     soil_reservoir["storage_m"] = 0.05 * torch.tensor(1.0, dtype=torch.float32, device=device).repeat(batch_size)
 
     # put items used in Nash Cascade & GIUH under routing
-    num_ordinates = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[
-        1
-    ]
+    num_ordinates = cfe_params["basinCharacteristics"]["giuh_ordinates"].shape[1]
 
     routing_info = {
         "num_ordinates": num_ordinates,  # giuh_ordinates are rows x 1 column for each basin, used in routing
@@ -137,9 +134,9 @@ def timestep_basin_constants(
     """
     # updating them into the cfe_params
     for k in timestep_params.keys():
-        if k in keys["soil"]:
+        if k in KEYS["soil"]:
             cfe_params["soil_params"][k] = timestep_params[k]
-        elif k in keys["basin_characteristics"]:
+        elif k in KEYS["basin_characteristics"]:
             cfe_params["basinCharacteristics"][k] = timestep_params[k]
         else:
             raise ValueError(f"Parameter {k} not recognized in keys.")
@@ -194,11 +191,22 @@ def initialize_flux_timestep(conceptual_forcing_timestep: torch.Tensor, flux: Di
     batch_size = conceptual_forcing_timestep.shape[0]
 
     flux_keys = [
-        "surface_runoff_depth_m", "infilt_excess_m", "infiltration_depth_m", "infilt_depth_m",
-        "actual_et_from_rain_m_per_timestep", "actual_et_from_soil_m_per_timestep", "actual_et_m_per_timestep",
-        "reduced_potential_et_m_per_timestep", "primary_flux_m", "secondary_flux_m",
-        "primary_flux_from_gw_m", "secondary_flux_from_gw_m", "giuh_runoff_m",
-        "nash_lateral_runoff_m", "from_deep_gw_to_chan_m", "tension_water_m"
+        "surface_runoff_depth_m",
+        "infilt_excess_m",
+        "infiltration_depth_m",
+        "infilt_depth_m",
+        "actual_et_from_rain_m_per_timestep",
+        "actual_et_from_soil_m_per_timestep",
+        "actual_et_m_per_timestep",
+        "reduced_potential_et_m_per_timestep",
+        "primary_flux_m",
+        "secondary_flux_m",
+        "primary_flux_from_gw_m",
+        "secondary_flux_from_gw_m",
+        "giuh_runoff_m",
+        "nash_lateral_runoff_m",
+        "from_deep_gw_to_chan_m",
+        "tension_water_m",
     ]
 
     zero_tensor = torch.tensor(0.0, dtype=torch.float32, device=device).repeat(batch_size)
