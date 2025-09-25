@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from neuralhydrology.utils.config import Config
 
 from neuralhydrology.datautils import utils
+from neuralhydrology.utils.config import Config
 
 
 def get_dcfe_params(cfg):
@@ -27,11 +27,11 @@ def get_dcfe_params(cfg):
 
     cfe_param_dir = cfg.param_dir
     calibrated_params_dir = cfg.calibrated_params_path
-    
+
     # --- get all the basin ids as strings ---
     basins = utils.load_basin_file(getattr(cfg, "train_basin_file"))
-    
-    col_keys = keys['soil'] + keys['basin_characteristics']
+
+    col_keys = KEYS["soil"] + KEYS["basin_characteristics"]
     df = pd.DataFrame(index=basins, columns=col_keys)
 
     # --- iterate thru each basin id to get params ---
@@ -50,7 +50,7 @@ def get_dcfe_params(cfg):
                 matches[match[0]] = [float(x) for x in match[1].split(",")]
 
         soil_params = {}
-        for k in keys["soil"]:
+        for k in KEYS["soil"]:
             match_key = "b" if k == "bb" else k
             if k == "D":
                 soil_params[k] = torch.tensor(2.0, dtype=torch.float32)
@@ -60,7 +60,7 @@ def get_dcfe_params(cfg):
                 soil_params[k] = torch.tensor(matches[f"soil_params.{match_key}"], dtype=torch.float32)
 
         basinCharacteristics = {}
-        for k in keys["basin_characteristics"]:
+        for k in KEYS["basin_characteristics"]:
             if k == "catchment_area_km2":
                 basinCharacteristics[k] = torch.tensor(111.11, dtype=torch.float32)
             else:
@@ -73,33 +73,33 @@ def get_dcfe_params(cfg):
             with open(json_file_path, "r") as file:
                 data = json.load(file)
                 best_params = data.get("best_params", {})
-                
+
                 # --- Update soil parameters ---
-                for k in keys["soil"]:
+                for k in KEYS["soil"]:
                     temp_value = best_params.get(k, soil_params[k])
                     soil_params[k] = (
                         temp_value.clone().detach()
                         if isinstance(temp_value, torch.Tensor)
                         else torch.tensor(temp_value, dtype=torch.float32)
-                        )
+                    )
 
                 # --- Update basin characteristics ---
-                for k in keys["basin_characteristics"]:
+                for k in KEYS["basin_characteristics"]:
                     lookup_key = "scheme" if k == "refkdt" else k
                     temp_value = best_params.get(lookup_key, basinCharacteristics[k])
                     basinCharacteristics[k] = (
                         temp_value.clone().detach()
                         if isinstance(temp_value, torch.Tensor)
                         else torch.tensor(temp_value, dtype=torch.float32)
-                )
+                    )
         else:
             print(f"[warn] JSON file not found for basin {basin_id}, using default parameters.")
 
         # --- Unpack into DataFrame row ---
-        for item in keys['soil']:
+        for item in KEYS["soil"]:
             df.at[basin_id, item] = soil_params[item]
-        
-        for item in keys['basin_characteristics']:
+
+        for item in KEYS["basin_characteristics"]:
             df.at[basin_id, item] = basinCharacteristics[item]
 
     return df
@@ -166,6 +166,7 @@ def move_data_to_device(
             data[key] = data[key].to(device)
     return data
 
+
 def identify_basins_with_low_snow(
     cfg,
     basin_file_path: str,
@@ -214,7 +215,7 @@ def identify_basins_with_low_snow(
                 selected_basins.append(basin)
 
         except FileNotFoundError:
-                print(f"[warn] Forcing file missing: {forcing_path}")
+            print(f"[warn] Forcing file missing: {forcing_path}")
 
     return selected_basins
 
@@ -238,7 +239,7 @@ def filter_basins_all_param_files(
     """
     cfe_param_dir = cfg.param_dir
     calibrated_param_dir = cfg.calibrated_params_path
-    
+
     valid_basins = []
     missing_basins = []
 
@@ -257,15 +258,16 @@ def filter_basins_all_param_files(
 
     return {"valid_basins": valid_basins, "missing_basins": missing_basins}
 
+
 def cfe_param_input_config(
     cfg: Config,
     lstm_out_params: torch.Tensor,
     calibrated_params: Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]],
 ) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
     """
-    Configure the CFE parameters for spin-up and prediction based on the LSTM outputs and calibrated parameters, 
+    Configure the CFE parameters for spin-up and prediction based on the LSTM outputs and calibrated parameters,
     and user-defined configurations.
-    
+
     Args:
         cfg: Configuration object containing spin-up and prediction settings.
         lstm_out_params: Dictionary of LSTM output parameters, where each key corresponds to a parameter name and the value is a tensor.
@@ -280,29 +282,29 @@ def cfe_param_input_config(
         as a placeholder for the dynamic parameters, there will be an arguement in dcfe.py to pass the dynamic parameters
         for each timestep.
     """
-    
-    
+
     spinup_cfe_params = {}
     predict_cfe_params = {}
-    
+
     spin_up_period = cfg.spin_up
-    
+
     if cfg.dcfe_spinup_config == "average":
         # Mean of the LSTM outputs for spin-up
         for k in lstm_out_params.keys():
-            spinup_cfe_params[k] = lstm_out_params[k][:, :(spin_up_period-1)].mean(dim=1)
+            spinup_cfe_params[k] = lstm_out_params[k][:, : (spin_up_period - 1)].mean(dim=1)
     elif cfg.dcfe_spinup_config == "calibrated" or cfg.dcfe_spinup_config == "dynamic":
         for k in lstm_out_params.keys():
-            if k in keys["soil"]:
+            if k in KEYS["soil"]:
                 spinup_cfe_params[k] = calibrated_params["soil_params"][k]
-            elif k in keys["basin_characteristics"]:
+            elif k in KEYS["basin_characteristics"]:
                 spinup_cfe_params[k] = calibrated_params["basinCharacteristics"][k]
             else:
                 raise ValueError(f"Parameter {k} not recognized in keys.")
     else:
-        raise ValueError(f"Invalid spin-up configuration: {cfg.dcfe_spinup_config}. Expected 'average', 'calibrated', or 'dynamic'.")
-    
-    
+        raise ValueError(
+            f"Invalid spin-up configuration: {cfg.dcfe_spinup_config}. Expected 'average', 'calibrated', or 'dynamic'."
+        )
+
     if cfg.dcfe_predict_config == "average":
         # Mean of the LSTM outputs for prediction
         for k in lstm_out_params.keys():
@@ -310,24 +312,27 @@ def cfe_param_input_config(
     elif cfg.dcfe_predict_config == "calibrated" or cfg.dcfe_predict_config == "dynamic":
         # Calibrated parameters for prediction
         for k in lstm_out_params.keys():
-            if k in keys["soil"]:
+            if k in KEYS["soil"]:
                 predict_cfe_params[k] = calibrated_params["soil_params"][k]
-            elif k in keys["basin_characteristics"]:
+            elif k in KEYS["basin_characteristics"]:
                 predict_cfe_params[k] = calibrated_params["basinCharacteristics"][k]
             else:
                 raise ValueError(f"Parameter {k} not recognized in keys.")
     else:
-        raise ValueError(f"Invalid prediction configuration: {cfg.dcfe_predict_config}. Expected 'average', 'calibrated', or 'dynamic'.")
-    
+        raise ValueError(
+            f"Invalid prediction configuration: {cfg.dcfe_predict_config}. Expected 'average', 'calibrated', or 'dynamic'."
+        )
+
     if cfg.dcfe_spinup_config == "average" and cfg.dcfe_predict_config == "average":
         # If both spin-up and prediction are average, we can use the same parameters that's averaged for the whole period
         for k in lstm_out_params.keys():
             spinup_cfe_params[k] = lstm_out_params[k].mean(dim=1)
             predict_cfe_params[k] = spinup_cfe_params[k]
-        
+
     return spinup_cfe_params, predict_cfe_params
 
-keys = {
+
+KEYS = {
     "basin_characteristics": [
         "catchment_area_km2",
         "refkdt",
@@ -339,7 +344,7 @@ keys = {
         "K_lf",
         "nash_storage",
         "giuh_ordinates",
-        ],
+    ],
     "soil": [
         "depth",
         "bb",
@@ -350,7 +355,7 @@ keys = {
         "wltsmc",
         "D",
         "mult",
-        ],
+    ],
     "study_calibrated_params": [
         "bb",
         "smcmax",
@@ -362,11 +367,11 @@ keys = {
         "K_lf",
         "K_nash",
         "refkdt",
-        ],
-    }
+    ],
+}
 
 # used in CFE modules
-physics_constants = {
-        "atm_press_Pa": 101325.0,  # [Pa]
-        "unit_weight_water_N_per_m3": 9810.0,  # [N/m3]
-    }
+PHYSICS_CONSTANTS = {
+    "atm_press_Pa": 101325.0,  # [Pa]
+    "unit_weight_water_N_per_m3": 9810.0,  # [N/m3]
+}

@@ -41,7 +41,7 @@ model: hybrid_model
 
 conceptual_model: dcfe
 
-# dcfe speicifc settings
+# dcfe specific settings
 dcfe_soil_scheme: classic # classic or ode, ode is not implemented yet
 dcfe_partition_scheme: Schaake # Schaake or Xinanjiang, Xinanjiang is not implemented yet
 dcfe_hourly: False # Daily, hourly is bad
@@ -94,11 +94,11 @@ clip_gradient_norm: 1
 predict_last_n: 365
 
 # Length of the input sequence
-seq_length: 910 # must be predict_last_n + warmup_period + spin_up
+seq_length: 910 # must be predict_last_n + warmup_LSTM + spinup_dCFE
 
-warmup_period: 180 #for the LSTM model
+warmup_LSTM: 180 #for the LSTM model
 
-spin_up: 365 #for the CFE part of the model
+spinup_dCFE: 365 #for the CFE part of the model
 
 # Number of parallel workers used in the data pipeline
 num_workers: 8
