@@ -25,7 +25,7 @@ test_end_date: "30/09/2000"
 #test_end_date: "30/09/2000"
 
 # which GPU (id) to use [in format of cuda:0, cuda:1 etc, or cpu or None]
-device: mps
+device: cuda:0
 
 # --- Validation configuration ---------------------------------------------------------------------
 
@@ -135,9 +135,12 @@ seed: 123 # random seed for reproducibility
 dataset: camels_us
 
 # Path to data set root
-data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
-param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
-calibrated_params_path: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/data/CFE_Calibrated_Config/runs
+# data_dir:  /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/neuralhydrology/data/CAMELS_US
+data_dir: /home/daniel/Research/hydrology/neuralhydrology/neuralhydrology/data/CAMELS_US
+#param_dir: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
+param_dir: /home/daniel/Research/hydrology/neuralhydrology/CFE_Config_Cver_from_Luciana
+# calibrated_params_path: /Users/danielmckenzie/Documents/Active_Research/Ziyu/neuralhydrology/data/CFE_Calibrated_Config/runs
+calibrated_params_path: /home/daniel/Research/hydrology/neuralhydrology/neuralhydrology/data/CFE_Calibrated_Config/runs
 #data_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CAMELS_US
 #param_dir: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Config_Cver_from_Luciana # insert appropriate directory here.
 #calibrated_params_path: /Users/ziyu/Library/CloudStorage/OneDrive-ColoradoSchoolofMines/Documents/College/ResearchStuff/NextGen/Code/data/CFE_Calibrated_Config/runs

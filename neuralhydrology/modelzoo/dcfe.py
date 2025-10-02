@@ -6,7 +6,7 @@ import neuralhydrology.utils.CFE_modules as cfe_module
 import neuralhydrology.utils.DCFE_utils as dCFE_utils
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
 from neuralhydrology.utils.config import Config
-
+from neuralhydrology.modelzoo.dcfe_constants import PARAMETER_RANGES, INITIAL_STATES
 
 class DCFE(BaseConceptualModel):
     """
@@ -86,9 +86,9 @@ class DCFE(BaseConceptualModel):
             cfg=self.cfg, conceptual_forcing=x_conceptual, cfe_params=cfe_calibrated_params, hourly=self.cfg.dcfe_hourly
         )
 
-        # Spin up for spinup_dCFE amount of time, do not track gradient
+        # Spin up for spin_up amount of time, do not track gradient
         with torch.no_grad():
-            for j in range(0, self.cfg.spinup_dCFE):
+            for j in range(0, self.cfg.spin_up):
                 if self.cfg.dcfe_spinup_config == "dynamic":
                     # use the dynamic parameters for spin-up
                     for key in timestep_spinup_params.keys():
@@ -116,7 +116,7 @@ class DCFE(BaseConceptualModel):
         torch.autograd.set_detect_anomaly(True)
 
         # now run dCFE for prediction. Gradients are tracked.
-        for k in range(self.cfg.spinup_dCFE, lstm_out.shape[1]):
+        for k in range(self.cfg.spin_up, lstm_out.shape[1]):
             if self.cfg.dcfe_predict_config == "dynamic":
                 # use the dynamic parameters for prediction
                 for key in timestep_predict_params.keys():
@@ -144,3 +144,11 @@ class DCFE(BaseConceptualModel):
             # * self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
 
         return {"y_hat": out, "parameters": parameters, "internal_states": states}
+    
+    @property
+    def parameter_ranges(self):
+        return PARAMETER_RANGES
+
+    @property
+    def initial_states(self):
+        return INITIAL_STATES
