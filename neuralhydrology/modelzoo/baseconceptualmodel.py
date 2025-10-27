@@ -1,7 +1,9 @@
-from typing import Dict, Union, Tuple
+from abc import ABC, abstractmethod
+from typing import Dict, Tuple, Union
+
 import torch
 import torch.nn as nn
-from abc import ABC, abstractmethod
+
 from neuralhydrology.utils.config import Config
 
 
@@ -26,7 +28,9 @@ class BaseConceptualModel(nn.Module, ABC):
             raise RuntimeError("dynamic_conceptual_inputs and target_variables require custom_normalization")
 
     @abstractmethod
-    def forward(self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
+    def forward(
+        self, x_conceptual: torch.Tensor, lstm_out: torch.Tensor
+    ) -> Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]:
         pass
 
     def _get_dynamic_parameters_conceptual(self, lstm_out: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -47,11 +51,15 @@ class BaseConceptualModel(nn.Module, ABC):
         for index, (parameter_name, parameter_range) in enumerate(self.parameter_ranges.items()):
             range_t = torch.tensor(parameter_range, dtype=torch.float32, device=lstm_out.device)
             range_t = range_t.repeat(lstm_out.shape[0], 1)  # To run all the elements of the batch in parallel
-            dynamic_parameters[parameter_name] = range_t[:, :1] + torch.sigmoid(lstm_out[:, :, index]) * (range_t[:, 1:] - range_t[:, :1])
+            dynamic_parameters[parameter_name] = range_t[:, :1] + torch.sigmoid(lstm_out[:, :, index]) * (
+                range_t[:, 1:] - range_t[:, :1]
+            )
 
         return dynamic_parameters
 
-    def _initialize_information(self, conceptual_inputs: torch.Tensor, lstm_out: torch.Tensor) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
+    def _initialize_information(
+        self, conceptual_inputs: torch.Tensor, lstm_out: torch.Tensor
+    ) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         """Initialize the structures to store the time evolution of the internal states and the outflow of the conceptual
         model
 
@@ -60,33 +68,39 @@ class BaseConceptualModel(nn.Module, ABC):
         conceptual_inputs: torch.Tensor
             Inputs of the conceptual model (dynamic forcings)
         lstm_out: torch.Tensor
-            Tensor of size [batch_size, time_steps, n_param] that will be used for dCFE to make 
+            Tensor of size [batch_size, time_steps, n_param] that will be used for dCFE to make
             the correct output dimension
         Returns
         -------
         Tuple[Dict[str, torch.Tensor], torch.Tensor]
             - states: Dict[str, torch.Tensor]
                 Dictionary to store the time evolution of the internal states (buckets) of the conceptual model
-            - q_out: torch.Tensor
+            - out: torch.Tensor
                 Tensor to store the outputs of the conceptual model
         """
 
         states = {}
         # initialize dictionary to store the evolution of the states
         for name, value in self.initial_states.items():
-            states[name] = torch.zeros((conceptual_inputs.shape[0], conceptual_inputs.shape[1]), dtype=torch.float32,
-                                       device=conceptual_inputs.device)
-            
-        # initialize vectors to store the evolution of the outputs
-        if self.cfg.conceptual_model.lower() == 'dcfe':
-            out = torch.zeros((conceptual_inputs.shape[0], lstm_out.shape[1], len(self.cfg.target_variables)),
-                              dtype=torch.float32, device=conceptual_inputs.device)
-        elif self.cfg.conceptual_model.lower() == 'shm':
-            out = torch.zeros((lstm_out.shape[0], conceptual_inputs.shape[1], len(self.cfg.target_variables)),
-                              dtype=torch.float32, device=conceptual_inputs.device)
-            
-        return states, out
+            states[name] = torch.zeros(
+                (conceptual_inputs.shape[0], conceptual_inputs.shape[1]), dtype=torch.float32, device=conceptual_inputs.device
+            )
 
+        # initialize vectors to store the evolution of the outputs
+        if self.cfg.conceptual_model.lower() == "dcfe":
+            out = torch.zeros(
+                (conceptual_inputs.shape[0], lstm_out.shape[1], len(self.cfg.target_variables)),
+                dtype=torch.float32,
+                device=conceptual_inputs.device,
+            )
+        elif self.cfg.conceptual_model.lower() == "shm":
+            out = torch.zeros(
+                (lstm_out.shape[0], conceptual_inputs.shape[1], len(self.cfg.target_variables)),
+                dtype=torch.float32,
+                device=conceptual_inputs.device,
+            )
+
+        return states, out
 
     @property
     def initial_states(self):
@@ -95,4 +109,3 @@ class BaseConceptualModel(nn.Module, ABC):
     @property
     def parameter_ranges(self):
         raise NotImplementedError
-

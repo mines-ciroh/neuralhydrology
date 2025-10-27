@@ -5,8 +5,9 @@ import torch
 import neuralhydrology.utils.CFE_modules as cfe_module
 import neuralhydrology.utils.DCFE_utils as dCFE_utils
 from neuralhydrology.modelzoo.baseconceptualmodel import BaseConceptualModel
+from neuralhydrology.modelzoo.dcfe_constants import INITIAL_STATES, PARAMETER_RANGES
 from neuralhydrology.utils.config import Config
-from neuralhydrology.modelzoo.dcfe_constants import PARAMETER_RANGES, INITIAL_STATES
+
 
 class DCFE(BaseConceptualModel):
     """
@@ -75,6 +76,7 @@ class DCFE(BaseConceptualModel):
         states, out = self._initialize_information(conceptual_inputs=x_conceptual, lstm_out=lstm_out)
 
         # initialize spin-up & prediction parameters
+        # DM: seems like this gets immediatel overwritten in the loops below.
         timestep_spinup_params, timestep_predict_params = dCFE_utils.cfe_param_input_config(
             cfg=self.cfg,
             lstm_out_params=parameters,
@@ -144,7 +146,7 @@ class DCFE(BaseConceptualModel):
             # * self.basinCharacteristics['catchment_area_km2'] * 1000000.0 / self.time_step_size
 
         return {"y_hat": out, "parameters": parameters, "internal_states": states}
-    
+
     @property
     def parameter_ranges(self):
         return PARAMETER_RANGES

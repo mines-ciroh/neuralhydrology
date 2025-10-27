@@ -2,6 +2,7 @@
 from typing import Dict, Union
 
 import torch
+
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils.DCFE_utils import KEYS, PHYSICS_CONSTANTS
 
@@ -46,6 +47,7 @@ def initialize_basin_constants(
         "days": ((3600 if hourly else 3600 * 24) / 3600) / 24,  # time step in [days]
     }
 
+    # redundant as we've only implemented Schaake.
     scheme = {
         "soil": cfg.dcfe_soil_scheme,  # choose between 'classic' or 'ode', 'ode' not available rn
         "partition": cfg.dcfe_partition_scheme,  # choose between 'Schaake' or 'Xinanjiang'
@@ -426,7 +428,7 @@ def run_Schaake_subroutine(
     soil_reservoir: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Module to run the Schaake subroutine for the CFE model at every timestep
-    This subtroutine takes water_input_depth_m and partitions it into surface_runoff_depth_m and
+    This subroutine takes water_input_depth_m and partitions it into surface_runoff_depth_m and
     infiltration_depth_m using the scheme from Schaake et al. 1996.
 
     There's no ice process.
